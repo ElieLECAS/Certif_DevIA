@@ -1,0 +1,30 @@
+# Fichiers Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Dossiers de logs et fichiers temporaires
+*.log
+cron.log
+.LOG
+# Fichiers d'environnement
+.env
+.ERR
+# Dossiers de données persistantes
+pgdata/
+ftp_files/
+
+# Dossiers Docker
+*.tar
+*.pid
+
+# VS Code / IDE
+.vscode/
+.idea/
+*.swp
+
+# Python virtualenv
+.venv/
+env/
+venv/
