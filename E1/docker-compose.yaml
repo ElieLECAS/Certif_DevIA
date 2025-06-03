@@ -8,22 +8,22 @@ services:
             - "21:21"
             - "21000-21010:21000-21010"
         environment:
-            - FTP_USER=monuser
-            - FTP_PASS=motdepasse
-            - PASV_ADDRESS=127.0.0.1
-            - PASV_MIN_PORT=21000
-            - PASV_MAX_PORT=21010
+            - FTP_USER=${FTP_USER}
+            - FTP_PASS=${FTP_PASS}
+            - PASV_ADDRESS=${PASV_ADDRESS}
+            - PASV_MIN_PORT=${PASV_MIN_PORT}
+            - PASV_MAX_PORT=${PASV_MAX_PORT}
         volumes:
-            - ./logs:/home/vsftpd/monuser
+            - ./logs:/home/vsftpd/${FTP_USER}
         restart: unless-stopped
 
     db:
         image: postgres:15
         container_name: postgres_db
         environment:
-            POSTGRES_DB: logsdb
-            POSTGRES_USER: user
-            POSTGRES_PASSWORD: password
+            POSTGRES_DB: ${POSTGRES_DB}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
         volumes:
             - pgdata:/var/lib/postgresql/data
         ports:
@@ -37,13 +37,13 @@ services:
             - ftp
             - db
         environment:
-            - FTP_HOST=ftp
-            - FTP_USER=monuser
-            - FTP_PASS=motdepasse
-            - DB_HOST=db
-            - DB_NAME=logsdb
-            - DB_USER=user
-            - DB_PASS=password
+            - FTP_HOST=${FTP_HOST}
+            - FTP_USER=${FTP_USER}
+            - FTP_PASS=${FTP_PASS}
+            - DB_HOST=${DB_HOST}
+            - DB_NAME=${DB_NAME}
+            - DB_USER=${DB_USER}
+            - DB_PASS=${DB_PASS}
         volumes:
             - .:/app
         restart: unless-stopped

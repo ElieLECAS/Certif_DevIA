@@ -24,7 +24,5 @@ RUN echo "0 8 * * * root python3 /app/script.py >> /app/cron.log 2>&1" > /etc/cr
     chmod 0644 /etc/cron.d/log-parser && \
     crontab /etc/cron.d/log-parser
 
-# Créer le fichier de log
-RUN touch /app/cron.log
 
 CMD ["cron", "-f"]
