@@ -109,10 +109,10 @@ docker-compose down
 
 ```bash
 # Tester la connexion et le fonctionnement
-docker-compose exec parser python3 /app/test_service.py
+docker-compose exec parser python3 /app/script/test_service.py
 
 # Exécuter le traitement manuellement
-docker-compose exec parser python3 /app/script.py
+docker-compose exec parser python3 /app/script/script.py
 ```
 
 ### Planification Automatique
