@@ -1,79 +1,77 @@
+#!/usr/bin/env python3
+"""
+Script principal pour traiter les fichiers LOG depuis le FTP
+et les stocker en base de données PostgreSQL.
+
+Ce script est conçu pour être exécuté par cron de manière périodique.
+"""
+
+import sys
 import os
-import ftplib
-import psycopg2
-from io import BytesIO
+import logging
 from datetime import datetime
 
-# Configuration FTP
-FTP_HOST = os.getenv("FTP_HOST", "ftp")
-FTP_USER = os.getenv("FTP_USER", "monuser")
-FTP_PASS = os.getenv("FTP_PASS", "motdepasse")
+# Ajouter le répertoire courant au path pour les imports
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Configuration PostgreSQL
-DB_HOST = os.getenv("DB_HOST", "db")
-DB_NAME = os.getenv("DB_NAME", "logsdb")
-DB_USER = os.getenv("DB_USER", "user")
-DB_PASS = os.getenv("DB_PASS", "password")
+from ftp_log_service import FTPLogService
 
-# Connexion PostgreSQL
-conn = psycopg2.connect(
-    host=DB_HOST,
-    dbname=DB_NAME,
-    user=DB_USER,
-    password=DB_PASS
+# Configuration du logging pour le script principal
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('/app/cron.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
 )
-cur = conn.cursor()
 
-# Création table si elle n'existe pas
-cur.execute("""
-    CREATE TABLE IF NOT EXISTS logs (
-        id SERIAL PRIMARY KEY,
-        timestamp TIMESTAMP,
-        level TEXT,
-        message TEXT
-    );
-""")
-conn.commit()
+logger = logging.getLogger(__name__)
 
-# Connexion au FTP
-ftp = ftplib.FTP(FTP_HOST)
-ftp.login(FTP_USER, FTP_PASS)
 
-# Liste des fichiers .LOG
-for filename in ftp.nlst():
-    if not filename.endswith(".LOG"):
-        continue
+def main():
+    """Fonction principale du script"""
+    start_time = datetime.now()
+    logger.info("=" * 60)
+    logger.info(f"DÉBUT DU TRAITEMENT DES LOGS FTP - {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("=" * 60)
+    
+    try:
+        # Créer une instance du service
+        service = FTPLogService()
+        
+        # Traiter tous les fichiers LOG
+        # delete_after_processing=True pour supprimer les fichiers après traitement
+        service.process_all_logs(delete_after_processing=True)
+        
+        end_time = datetime.now()
+        duration = end_time - start_time
+        
+        logger.info("=" * 60)
+        logger.info(f"TRAITEMENT TERMINÉ AVEC SUCCÈS - {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"Durée totale: {duration}")
+        logger.info("=" * 60)
+        
+        return 0
+        
+    except Exception as e:
+        end_time = datetime.now()
+        duration = end_time - start_time
+        
+        logger.error("=" * 60)
+        logger.error(f"ERREUR LORS DU TRAITEMENT - {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.error(f"Durée avant erreur: {duration}")
+        logger.error(f"Erreur: {str(e)}")
+        logger.error("=" * 60)
+        
+        # Importer traceback pour plus de détails sur l'erreur
+        import traceback
+        logger.error("Détails de l'erreur:")
+        logger.error(traceback.format_exc())
+        
+        return 1
 
-    print(f"📥 Téléchargement de {filename}...")
 
-    # Lire le fichier depuis le FTP en mémoire
-    bio = BytesIO()
-    ftp.retrbinary(f"RETR {filename}", bio.write)
-    bio.seek(0)
-
-    lignes = bio.read().decode("utf-8").splitlines()
-    for line in lignes:
-        if not line.strip():
-            continue
-        try:
-            # Exemple de ligne : 2024-06-01T08:00:00 INFO Démarrage du système
-            timestamp_str, level, message = line.strip().split(" ", 2)
-            timestamp = datetime.fromisoformat(timestamp_str)
-            cur.execute(
-                "INSERT INTO logs (timestamp, level, message) VALUES (%s, %s, %s)",
-                (timestamp, level, message)
-            )
-        except Exception as e:
-            print(f"❌ Erreur sur la ligne : {line} → {e}")
-
-    # Supprimer le fichier du FTP (optionnel)
-    ftp.delete(filename)
-    print(f"✅ {filename} traité et supprimé.")
-
-# Nettoyage
-conn.commit()
-cur.close()
-conn.close()
-ftp.quit()
-
-print("✅ Script terminé.")
+if __name__ == "__main__":
+    exit_code = main()
+    sys.exit(exit_code)

@@ -1,52 +1,52 @@
 version: "3.9"
 
 services:
-  ftp:
-    image: fauria/vsftpd
-    container_name: ftp_server
-    ports:
-      - "21:21"
-      - "21000-21010:21000-21010"
-    environment:
-      - FTP_USER=monuser
-      - FTP_PASS=motdepasse
-      - PASV_ADDRESS=127.0.0.1
-      - PASV_MIN_PORT=21000
-      - PASV_MAX_PORT=21010
-    volumes:
-      - ./logs:/home/vsftpd
-    restart: unless-stopped
+    ftp:
+        image: fauria/vsftpd
+        container_name: ftp_server
+        ports:
+            - "21:21"
+            - "21000-21010:21000-21010"
+        environment:
+            - FTP_USER=monuser
+            - FTP_PASS=motdepasse
+            - PASV_ADDRESS=127.0.0.1
+            - PASV_MIN_PORT=21000
+            - PASV_MAX_PORT=21010
+        volumes:
+            - ./logs:/home/vsftpd/monuser
+        restart: unless-stopped
 
-  db:
-    image: postgres:15
-    container_name: postgres_db
-    environment:
-      POSTGRES_DB: logsdb
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    restart: unless-stopped
+    db:
+        image: postgres:15
+        container_name: postgres_db
+        environment:
+            POSTGRES_DB: logsdb
+            POSTGRES_USER: user
+            POSTGRES_PASSWORD: password
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+        ports:
+            - "5432:5432"
+        restart: unless-stopped
 
-  parser:
-    build: ./parser
-    container_name: log_parser
-    depends_on:
-      - ftp
-      - db
-    environment:
-      - FTP_HOST=ftp
-      - FTP_USER=monuser
-      - FTP_PASS=motdepasse
-      - DB_HOST=db
-      - DB_NAME=logsdb
-      - DB_USER=user
-      - DB_PASS=password
-    volumes:
-      - ./parser:/app
-    restart: unless-stopped
+    parser:
+        build: .
+        container_name: log_parser
+        depends_on:
+            - ftp
+            - db
+        environment:
+            - FTP_HOST=ftp
+            - FTP_USER=monuser
+            - FTP_PASS=motdepasse
+            - DB_HOST=db
+            - DB_NAME=logsdb
+            - DB_USER=user
+            - DB_PASS=password
+        volumes:
+            - .:/app
+        restart: unless-stopped
 
 volumes:
-  pgdata:
+    pgdata:

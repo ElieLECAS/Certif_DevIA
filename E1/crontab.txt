@@ -1,1 +1,0 @@
-0 8 * * * root python3 /app/main.py >> /app/cron.log 2>&1
