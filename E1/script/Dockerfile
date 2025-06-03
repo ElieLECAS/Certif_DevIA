@@ -20,9 +20,13 @@ COPY script.py /app/script.py
 RUN chmod +x /app/script.py
 
 # Créer la tâche cron directement et l'installer
-RUN echo "0 8 * * * root python3 /app/script.py >> /app/cron.log 2>&1" > /etc/cron.d/log-parser && \
+RUN echo "PATH=/usr/local/bin:/usr/bin:/bin" > /etc/cron.d/log-parser && \
+    echo "* 8 * * * /usr/local/bin/python3 /app/script/test_service.py >> /app/cron.log 2>&1" >> /etc/cron.d/log-parser && \
+    echo "" >> /etc/cron.d/log-parser && \
     chmod 0644 /etc/cron.d/log-parser && \
     crontab /etc/cron.d/log-parser
 
+# Créer le fichier de log
+RUN touch /app/cron.log
 
 CMD ["cron", "-f"]
