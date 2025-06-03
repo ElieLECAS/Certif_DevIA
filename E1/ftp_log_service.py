@@ -51,10 +51,10 @@ class FTPLogService:
         self.ftp_pass = os.getenv('FTP_PASS')
         
         # Configuration pour se connecter à la base de données
-        self.db_host = os.getenv('DB_HOST')
-        self.db_name = os.getenv('DB_NAME')
-        self.db_user = os.getenv('DB_USER')
-        self.db_pass = os.getenv('DB_PASS')
+        self.db_host = os.getenv('POSTGRES_HOST')
+        self.db_name = os.getenv('POSTGRES_DB')
+        self.db_user = os.getenv('POSTGRES_USER')
+        self.db_pass = os.getenv('POSTGRES_PASSWORD')
         
         # Dictionnaire qui fait le lien entre les noms de dossiers FTP et les types de machines
         # Clé = nom du dossier sur le FTP, Valeur = type de machine
