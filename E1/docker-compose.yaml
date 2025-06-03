@@ -36,10 +36,6 @@ services:
         depends_on:
             - db
         environment:
-            - DB_HOST=db
-            - DB_NAME=${POSTGRES_DB}
-            - DB_USER=${POSTGRES_USER}
-            - DB_PASS=${POSTGRES_PASSWORD}
             - POSTGRES_HOST=db
             - POSTGRES_DB=${POSTGRES_DB}
             - POSTGRES_USER=${POSTGRES_USER}

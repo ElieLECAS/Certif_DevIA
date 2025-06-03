@@ -41,10 +41,11 @@ def clean_database():
         
         # === ÉTAPE 1: RÉCUPÉRER LA CONFIGURATION ===
         # Les paramètres de connexion peuvent être surchargés par des variables d'environnement
-        db_host = os.getenv('DB_HOST', 'db')
-        db_name = os.getenv('DB_NAME', 'logsdb')
-        db_user = os.getenv('DB_USER', 'user')
-        db_pass = os.getenv('DB_PASS', 'password')
+        # Utilisation des variables d'environnement du docker-compose.yaml
+        db_host = os.getenv('POSTGRES_HOST')  # 'db' est le nom du service dans docker-compose
+        db_name = os.getenv('POSTGRES_DB')
+        db_user = os.getenv('POSTGRES_USER')
+        db_pass = os.getenv('POSTGRES_PASSWORD')
         
         logger.info(f"📡 Connexion à la base de données: {db_host}/{db_name}")
         

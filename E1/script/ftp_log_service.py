@@ -59,9 +59,9 @@ class FTPLogService:
         # Dictionnaire qui fait le lien entre les noms de dossiers FTP et les types de machines
         # Clé = nom du dossier sur le FTP, Valeur = type de machine
         self.cu_directories = {
-            'DEM12 (PVC)': 'PVC',
-            'DEMALU (ALU)': 'ALU', 
-            'SU12 (HYBRIDE)': 'HYBRIDE'
+            'DEM12 (PVC)': 'DEM12',
+            'DEMALU (ALU)': 'DEMALU', 
+            'SU12 (HYBRIDE)': 'SU12'
         }
         
         # Variables pour stocker les connexions (initialisées à None)
