@@ -31,7 +31,7 @@ services:
         restart: unless-stopped
 
     parser:
-        build: .
+        build: ./script
         container_name: log_parser
         depends_on:
             - ftp
