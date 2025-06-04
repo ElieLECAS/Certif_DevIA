@@ -46,6 +46,17 @@ services:
             - ./api:/app
         restart: unless-stopped
 
+    ui:
+        build: ./UI
+        container_name: streamlit_ui
+        depends_on:
+            - api
+        ports:
+            - "8501:8501"
+        volumes:
+            - ./UI:/app
+        restart: unless-stopped
+
     parser:
         build: ./script
         container_name: log_parser

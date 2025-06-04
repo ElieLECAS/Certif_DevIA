@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc, asc
+from sqlalchemy import and_, or_, desc, asc, func
 from typing import List, Optional
 from datetime import date, datetime
 import models
@@ -265,9 +265,9 @@ def get_production_summary(db: Session):
     return db.query(
         models.CentreUsinage.nom,
         models.CentreUsinage.type_cu,
-        db.func.count(models.SessionProduction.id).label('total_sessions'),
-        db.func.sum(models.SessionProduction.total_pieces).label('total_pieces'),
-        db.func.avg(models.SessionProduction.taux_occupation).label('taux_occupation_moyen')
+        func.count(models.SessionProduction.id).label('total_sessions'),
+        func.sum(models.SessionProduction.total_pieces).label('total_pieces'),
+        func.avg(models.SessionProduction.taux_occupation).label('taux_occupation_moyen')
     ).join(
         models.SessionProduction, models.CentreUsinage.id == models.SessionProduction.centre_usinage_id
     ).group_by(
