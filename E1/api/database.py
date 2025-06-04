@@ -8,10 +8,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration de la base de données
-DB_HOST = os.getenv('DB_HOST', 'localhost')
-DB_NAME = os.getenv('DB_NAME', os.getenv('POSTGRES_DB'))
-DB_USER = os.getenv('DB_USER', os.getenv('POSTGRES_USER'))
-DB_PASS = os.getenv('DB_PASS', os.getenv('POSTGRES_PASSWORD'))
+DB_HOST = os.getenv('POSTGRES_HOST')
+DB_NAME = os.getenv('POSTGRES_DB')
+DB_USER = os.getenv('POSTGRES_USER')
+DB_PASS = os.getenv('POSTGRES_PASSWORD')
 
 # URL de connexion à PostgreSQL
 SQLALCHEMY_DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
