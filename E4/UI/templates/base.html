@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{% block title %}GMAO Mobile{% endblock %}</title>
+
+        <!-- Bootstrap CSS -->
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
+        <!-- Bootstrap Icons -->
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+            rel="stylesheet"
+        />
+        <!-- Google Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <!-- PWA Meta Tags -->
+        <meta name="theme-color" content="#3a6df0" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="GMAO Mobile" />
+
+        <style>
+            :root {
+                --primary-color: #3a6df0;
+                --primary-light: #e9effd;
+                --secondary-color: #4f5e74;
+                --success-color: #22c55e;
+                --danger-color: #ef4444;
+                --warning-color: #eab308;
+                --text-color: #2c3e50;
+                --bg-color: #f8f9fd;
+                --card-bg: #ffffff;
+                --border-color: #e6e8ee;
+                --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+                --transition: all 0.3s ease;
+                --border-radius: 12px;
+            }
+
+            body {
+                padding-bottom: 80px; /* Space for bottom navigation */
+                background-color: var(--bg-color);
+                color: var(--text-color);
+                font-family: "Inter", sans-serif;
+            }
+
+            .navbar-brand {
+                font-weight: 700;
+                letter-spacing: -0.5px;
+            }
+
+            .bottom-nav {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: var(--card-bg);
+                border-top: 1px solid var(--border-color);
+                z-index: 1000;
+                padding: 12px 0 8px;
+                box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+            }
+
+            .bottom-nav .nav-item {
+                flex: 1;
+                text-align: center;
+            }
+
+            .bottom-nav .nav-link {
+                color: var(--secondary-color);
+                text-decoration: none;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 6px;
+                font-size: 0.75rem;
+                border-radius: 8px;
+                transition: var(--transition);
+            }
+
+            .bottom-nav .nav-link.active {
+                color: var(--primary-color);
+                background-color: var(--primary-light);
+                font-weight: 500;
+            }
+
+            .bottom-nav .nav-link i {
+                font-size: 1.35rem;
+                margin-bottom: 4px;
+            }
+
+            .card {
+                border: none;
+                box-shadow: var(--box-shadow);
+                margin-bottom: 1rem;
+                border-radius: var(--border-radius);
+                overflow: hidden;
+                transition: var(--transition);
+            }
+
+            .card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+            }
+
+            .btn-scan {
+                background: linear-gradient(
+                    45deg,
+                    var(--primary-color),
+                    #6284f7
+                );
+                border: none;
+                border-radius: 50px;
+                padding: 14px 28px;
+                font-weight: 600;
+                box-shadow: 0 4px 15px rgba(58, 109, 240, 0.3);
+                transition: var(--transition);
+            }
+
+            .btn-scan:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(58, 109, 240, 0.4);
+            }
+
+            .btn {
+                border-radius: 8px;
+                padding: 10px 16px;
+                font-weight: 500;
+            }
+
+            .stock-badge {
+                font-size: 0.8rem;
+                padding: 4px 10px;
+                border-radius: 20px;
+                font-weight: 500;
+            }
+
+            .stock-low {
+                background-color: var(--danger-color);
+            }
+
+            .stock-medium {
+                background-color: var(--warning-color);
+                color: #7c4a03;
+            }
+
+            .stock-good {
+                background-color: var(--success-color);
+            }
+
+            .search-container {
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                background: var(--card-bg);
+                padding: 1rem;
+                border-bottom: 1px solid var(--border-color);
+                border-radius: var(--border-radius) var(--border-radius) 0 0;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            }
+
+            .form-control {
+                border-radius: 8px;
+                border-color: var(--border-color);
+                padding: 10px 16px;
+            }
+
+            .form-control:focus {
+                box-shadow: 0 0 0 3px rgba(58, 109, 240, 0.2);
+                border-color: var(--primary-color);
+            }
+
+            .form-select {
+                border-radius: 8px;
+                border-color: var(--border-color);
+                padding: 10px 36px 10px 16px;
+            }
+
+            .form-select:focus {
+                box-shadow: 0 0 0 3px rgba(58, 109, 240, 0.2);
+                border-color: var(--primary-color);
+            }
+
+            .navbar {
+                padding: 15px 0;
+                background: linear-gradient(
+                    45deg,
+                    var(--primary-color),
+                    #6284f7
+                ) !important;
+                box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            }
+
+            .navbar-dark .navbar-nav .nav-link {
+                color: rgba(255, 255, 255, 0.85);
+                font-weight: 500;
+                padding: 8px 16px;
+                border-radius: 8px;
+                transition: var(--transition);
+            }
+
+            .navbar-dark .navbar-nav .nav-link:hover,
+            .navbar-dark .navbar-nav .nav-link:focus {
+                color: #fff;
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+
+            @media (max-width: 576px) {
+                .container-fluid {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                }
+            }
+
+            /* Animation pour les transitions */
+            .fade-in {
+                animation: fadeIn 0.3s ease-in;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            /* Style pour le scanner QR */
+            #qr-reader {
+                width: 100%;
+                max-width: 400px;
+                margin: 0 auto;
+                border-radius: var(--border-radius);
+                overflow: hidden;
+            }
+
+            .scanner-container {
+                background: black;
+                border-radius: var(--border-radius);
+                overflow: hidden;
+                margin: 1rem 0;
+                box-shadow: var(--box-shadow);
+            }
+
+            /* Style pour les alerts */
+            .alert {
+                border: none;
+                border-radius: var(--border-radius);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            }
+
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6 {
+                font-weight: 600;
+                color: #1e293b;
+            }
+
+            /* Styliser les sections */
+            .section-title {
+                font-size: 1.25rem;
+                font-weight: 600;
+                margin-bottom: 1.25rem;
+                color: #1e293b;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .section-title i {
+                color: var(--primary-color);
+            }
+
+            /* Style de table amélioré */
+            .table {
+                border-radius: var(--border-radius);
+                overflow: hidden;
+                box-shadow: var(--box-shadow);
+            }
+
+            .table thead th {
+                background-color: #f8fafc;
+                font-weight: 600;
+                text-transform: uppercase;
+                font-size: 0.75rem;
+                letter-spacing: 0.5px;
+                padding: 16px;
+                border-bottom: 2px solid var(--border-color);
+            }
+
+            .table td {
+                padding: 14px 16px;
+                vertical-align: middle;
+            }
+
+            .table-hover tbody tr:hover {
+                background-color: var(--primary-light);
+            }
+        </style>
+
+        {% block extra_css %}{% endblock %}
+    </head>
+    <body>
+        <!-- Top Navigation -->
+        <nav class="navbar navbar-expand-lg navbar-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="{{ url_for('index') }}">
+                    <i class="bi bi-boxes"></i> GMAO Mobile
+                </a>
+                <button
+                    class="navbar-toggler"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#navbarNav"
+                >
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('scanner') }}">
+                                <i class="bi bi-qr-code-scan"></i> Scanner
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('magasin') }}">
+                                <i class="bi bi-list-ul"></i> Inventaire
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %} {% if
+        messages %}
+        <div class="container-fluid mt-3">
+            {% for category, message in messages %}
+            <div
+                class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
+                role="alert"
+            >
+                {{ message }}
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert"
+                ></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %} {% endwith %}
+
+        <!-- Main Content -->
+        <main class="container-fluid py-4 fade-in">
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <div class="d-flex px-2">
+                <div class="nav-item">
+                    <a
+                        href="{{ url_for('index') }}"
+                        class="nav-link {% if request.endpoint == 'index' %}active{% endif %}"
+                    >
+                        <i class="bi bi-house"></i>
+                        <span>Accueil</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a
+                        href="{{ url_for('scanner') }}"
+                        class="nav-link {% if request.endpoint == 'scanner' %}active{% endif %}"
+                    >
+                        <i class="bi bi-qr-code-scan"></i>
+                        <span>Scanner</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a
+                        href="{{ url_for('magasin') }}"
+                        class="nav-link {% if request.endpoint == 'magasin' or request.endpoint == 'inventaire' %}active{% endif %}"
+                    >
+                        <i class="bi bi-shop"></i>
+                        <span>Magasin</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a
+                        href="{{ url_for('gestion_demandes') }}"
+                        class="nav-link {% if request.endpoint == 'gestion_demandes' or request.endpoint == 'demande_materiel' or request.endpoint == 'demandes' %}active{% endif %}"
+                    >
+                        <i class="bi bi-clipboard-check"></i>
+                        <span>Demandes</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a
+                        href="{{ url_for('alertes_stock') }}"
+                        class="nav-link {% if request.endpoint == 'alertes_stock' or request.endpoint == 'stock_faible' %}active{% endif %}"
+                    >
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <span>Alertes</span>
+                    </a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+        <!-- Common JavaScript -->
+        <script>
+            // Fonction utilitaire pour les requêtes AJAX
+            function makeRequest(url, method = "GET", data = null) {
+                const options = {
+                    method: method,
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                };
+
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+
+                return fetch(url, options)
+                    .then((response) => response.json())
+                    .catch((error) => {
+                        console.error("Erreur:", error);
+                        throw error;
+                    });
+            }
+
+            // Fonction pour afficher les notifications
+            function showNotification(message, type = "info") {
+                const alertDiv = document.createElement("div");
+                alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+                alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+                const container = document.querySelector(".container-fluid");
+                container.insertBefore(alertDiv, container.firstChild);
+
+                // Auto-dismiss after 5 seconds
+                setTimeout(() => {
+                    if (alertDiv.parentNode) {
+                        alertDiv.remove();
+                    }
+                }, 5000);
+            }
+
+            // Gestion du mode hors ligne
+            window.addEventListener("online", () => {
+                showNotification("Connexion rétablie", "success");
+            });
+
+            window.addEventListener("offline", () => {
+                showNotification("Mode hors ligne activé", "warning");
+            });
+        </script>
+
+        {% block extra_js %}{% endblock %}
+    </body>
+</html>

@@ -1,0 +1,398 @@
+{% extends "base.html" %} {% block title %}Demande de matériel - GMAO Mobile{%
+endblock %} {% block extra_css %}
+<style>
+    .form-card {
+        border: none;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        border-radius: 15px;
+    }
+
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .section-title {
+        color: #0d6efd;
+        font-weight: bold;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .scanner-btn {
+        background: linear-gradient(45deg, #0d6efd, #6610f2);
+        border: none;
+        color: white;
+        border-radius: 10px;
+    }
+
+    .scanner-btn:hover {
+        background: linear-gradient(45deg, #0b5ed7, #5a0fc8);
+        color: white;
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4><i class="bi bi-plus-circle"></i> Demande de matériel</h4>
+        <a
+            href="{{ url_for('gestion_demandes') }}"
+            class="btn btn-outline-secondary btn-sm"
+        >
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+
+    <div class="form-card card">
+        <div class="card-body">
+            <form id="demandeForm">
+                <!-- Section Identification -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="bi bi-person-badge"></i>
+                        Identification
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="demandeur" class="form-label"
+                                >Demandeur *</label
+                            >
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="demandeur"
+                                name="demandeur"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="table_atelier" class="form-label"
+                                >Table d'atelier *</label
+                            >
+                            <select
+                                class="form-select"
+                                id="table_atelier"
+                                name="table_atelier"
+                                required
+                            >
+                                <option value="">Sélectionner une table</option>
+                                {% for table in tables %}
+                                <option value="{{ table.nom }}">
+                                    {{ table.nom }} - {{ table.description or ''
+                                    }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section Produit -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="bi bi-box"></i>
+                        Produit demandé
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="reference_produit" class="form-label"
+                                >Référence produit *</label
+                            >
+                            <div class="input-group">
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    id="reference_produit"
+                                    name="reference_produit"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    class="btn scanner-btn"
+                                    onclick="openScanner()"
+                                >
+                                    <i class="bi bi-qr-code-scan"></i> Scanner
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                Saisissez la référence ou scannez le QR code
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="quantite_demandee" class="form-label"
+                                >Quantité demandée *</label
+                            >
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="quantite_demandee"
+                                name="quantite_demandee"
+                                min="1"
+                                required
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informations produit (affichées après sélection) -->
+                <div
+                    id="produitInfo"
+                    class="form-section"
+                    style="display: none"
+                >
+                    <h5 class="section-title">
+                        <i class="bi bi-info-circle"></i>
+                        Informations produit
+                    </h5>
+                    <div id="produitDetails">
+                        <!-- Contenu chargé dynamiquement -->
+                    </div>
+                </div>
+
+                <!-- Boutons d'action -->
+                <div class="d-flex gap-2 justify-content-end">
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        onclick="resetForm()"
+                    >
+                        <i class="bi bi-arrow-clockwise"></i> Réinitialiser
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-send"></i> Envoyer la demande
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Scanner -->
+<div class="modal fade" id="scannerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Scanner QR Code</h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                ></button>
+            </div>
+            <div class="modal-body">
+                <div id="qr-reader" style="width: 100%"></div>
+                <div class="mt-3">
+                    <label for="manualInput" class="form-label"
+                        >Ou saisir manuellement :</label
+                    >
+                    <div class="input-group">
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="manualInput"
+                            placeholder="Référence produit"
+                        />
+                        <button
+                            type="button"
+                            class="btn btn-primary"
+                            onclick="useManualInput()"
+                        >
+                            Utiliser
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+    let html5QrcodeScanner = null;
+
+    // Gestion du changement de référence produit
+    document
+        .getElementById("reference_produit")
+        .addEventListener("blur", function () {
+            const reference = this.value.trim();
+            if (reference) {
+                loadProductInfo(reference);
+            }
+        });
+
+    // Fonction pour charger les informations produit
+    function loadProductInfo(reference) {
+        makeRequest(`/api/produit/${reference}`)
+            .then((response) => {
+                if (response && !response.error) {
+                    document.getElementById("produitDetails").innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Nom:</strong> ${
+                                    response.nom || "Non spécifié"
+                                }</p>
+                                <p><strong>Description:</strong> ${
+                                    response.description || "Non spécifiée"
+                                }</p>
+                                <p><strong>Stock actuel:</strong> ${
+                                    response.quantite || 0
+                                }</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Emplacement:</strong> ${
+                                    response.emplacement || "Non spécifié"
+                                }</p>
+                                <p><strong>Fournisseur:</strong> ${
+                                    response.fournisseur || "Non spécifié"
+                                }</p>
+                                <p><strong>Prix unitaire:</strong> ${
+                                    response.prix_unitaire || 0
+                                }€</p>
+                            </div>
+                        </div>
+                        ${
+                            response.quantite < (response.seuil_alerte || 0)
+                                ? '<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> Stock faible pour ce produit</div>'
+                                : ""
+                        }
+                    `;
+                    document.getElementById("produitInfo").style.display =
+                        "block";
+                } else {
+                    document.getElementById("produitInfo").style.display =
+                        "none";
+                    showNotification("Produit non trouvé", "warning");
+                }
+            })
+            .catch((error) => {
+                document.getElementById("produitInfo").style.display = "none";
+                console.error("Erreur lors du chargement du produit:", error);
+            });
+    }
+
+    // Fonction pour ouvrir le scanner
+    function openScanner() {
+        const modal = new bootstrap.Modal(
+            document.getElementById("scannerModal")
+        );
+        modal.show();
+
+        modal._element.addEventListener("shown.bs.modal", function () {
+            startScanner();
+        });
+
+        modal._element.addEventListener("hidden.bs.modal", function () {
+            stopScanner();
+        });
+    }
+
+    // Démarrer le scanner
+    function startScanner() {
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "qr-reader",
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0,
+            },
+            false
+        );
+
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    }
+
+    // Arrêter le scanner
+    function stopScanner() {
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear();
+            html5QrcodeScanner = null;
+        }
+    }
+
+    // Succès du scan
+    function onScanSuccess(decodedText, decodedResult) {
+        document.getElementById("reference_produit").value = decodedText;
+        loadProductInfo(decodedText);
+        bootstrap.Modal.getInstance(
+            document.getElementById("scannerModal")
+        ).hide();
+        showNotification("QR Code scanné avec succès", "success");
+    }
+
+    // Échec du scan
+    function onScanFailure(error) {
+        // Ne pas afficher les erreurs de scan en continu
+    }
+
+    // Utiliser la saisie manuelle
+    function useManualInput() {
+        const manualValue = document.getElementById("manualInput").value.trim();
+        if (manualValue) {
+            document.getElementById("reference_produit").value = manualValue;
+            loadProductInfo(manualValue);
+            bootstrap.Modal.getInstance(
+                document.getElementById("scannerModal")
+            ).hide();
+        }
+    }
+
+    // Soumission du formulaire
+    document
+        .getElementById("demandeForm")
+        .addEventListener("submit", function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+
+            // Validation
+            if (
+                !data.demandeur ||
+                !data.table_atelier ||
+                !data.reference_produit ||
+                !data.quantite_demandee
+            ) {
+                showNotification(
+                    "Veuillez remplir tous les champs obligatoires",
+                    "danger"
+                );
+                return;
+            }
+
+            // Envoyer la demande
+            makeRequest("/api/demandes/", "POST", data)
+                .then((response) => {
+                    if (response && response.success) {
+                        showNotification(
+                            "Demande créée avec succès",
+                            "success"
+                        );
+                        setTimeout(() => {
+                            window.location.href =
+                                "{{ url_for('gestion_demandes') }}";
+                        }, 2000);
+                    } else {
+                        showNotification(
+                            "Erreur lors de la création de la demande",
+                            "danger"
+                        );
+                    }
+                })
+                .catch((error) => {
+                    showNotification("Erreur de connexion", "danger");
+                    console.error("Erreur:", error);
+                });
+        });
+
+    // Réinitialiser le formulaire
+    function resetForm() {
+        document.getElementById("demandeForm").reset();
+        document.getElementById("produitInfo").style.display = "none";
+    }
+</script>
+{% endblock %}

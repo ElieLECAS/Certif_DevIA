@@ -1,0 +1,61 @@
+version: "3.8"
+
+services:
+    # Base de données PostgreSQL
+    postgres:
+        image: postgres:15
+        container_name: gmao-postgres
+        environment:
+            POSTGRES_DB: ${POSTGRES_DB}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        ports:
+            - "${POSTGRES_PORT}:5432"
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+            - ./api/init.sql:/docker-entrypoint-initdb.d/init.sql
+        restart: unless-stopped
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+
+    # API FastAPI pour la gestion de stock
+    api:
+        build: ./api
+        container_name: gmao-api
+        ports:
+            - "8010:8000"
+        environment:
+            - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+            - PYTHONUNBUFFERED=1
+        volumes:
+            - ./api:/app
+        depends_on:
+            postgres:
+                condition: service_healthy
+        restart: unless-stopped
+
+    # Application Flask Mobile
+    flask-mobile:
+        build: ./UI
+        container_name: gmao-flask-mobile
+        ports:
+            - "8080:5000"
+        environment:
+            - API_BASE_URL=http://api:8000
+            - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+            - FLASK_ENV=production
+        volumes:
+            - ./UI:/app
+        depends_on:
+            - api
+        restart: unless-stopped
+
+volumes:
+    postgres_data:

@@ -1,0 +1,420 @@
+{% extends "base.html" %} {% block title %}GMAO Mobile - Accueil{% endblock %}
+{% block extra_css %}
+<style>
+    .menu-section {
+        margin-bottom: 2.5rem;
+    }
+
+    .menu-section h5 {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 1.25rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .menu-card {
+        transition: var(--transition);
+        border: none;
+        box-shadow: var(--box-shadow);
+        height: 100%;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        background-color: var(--card-bg);
+    }
+
+    .menu-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .menu-card .card-body {
+        padding: 1.75rem 1.5rem;
+        text-align: center;
+    }
+
+    .menu-card i {
+        font-size: 2.5rem;
+        margin-bottom: 1.25rem;
+        background-color: var(--primary-light);
+        border-radius: 50%;
+        width: 70px;
+        height: 70px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: auto;
+        margin-right: auto;
+        transition: transform 0.3s ease;
+    }
+
+    .menu-card:hover i {
+        transform: scale(1.1);
+    }
+
+    .menu-card h6 {
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        font-size: 1rem;
+        color: var(--text-color);
+    }
+
+    .menu-card .text-muted {
+        font-size: 0.875rem;
+        color: var(--secondary-color) !important;
+    }
+
+    .admin-section {
+        background: var(--primary-light);
+        border-radius: var(--border-radius);
+        padding: 2rem 1.5rem;
+        margin-top: 2.5rem;
+        box-shadow: var(--box-shadow);
+    }
+
+    .admin-section h5 {
+        color: var(--primary-color);
+        border-bottom-color: rgba(58, 109, 240, 0.2);
+    }
+
+    .admin-section .card {
+        background: var(--card-bg);
+    }
+
+    .stats-card {
+        background: linear-gradient(135deg, #4776e6 0%, #8e54e9 100%);
+        color: white;
+        border-radius: var(--border-radius);
+        padding: 1.75rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 20px rgba(71, 118, 230, 0.2);
+    }
+
+    .stats-card h4 {
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+    }
+
+    .quick-action-container {
+        background-color: var(--card-bg);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        margin-bottom: 2.5rem;
+        box-shadow: var(--box-shadow);
+        text-align: center;
+    }
+
+    .quick-action-container h5 {
+        border-bottom: none;
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .quick-action-btn {
+        background: linear-gradient(45deg, var(--primary-color), #6284f7);
+        border: none;
+        border-radius: 50px;
+        padding: 14px 28px;
+        color: white;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0.5rem;
+        transition: var(--transition);
+        box-shadow: 0 4px 12px rgba(58, 109, 240, 0.2);
+    }
+
+    .quick-action-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(58, 109, 240, 0.3);
+        color: white;
+        text-decoration: none;
+    }
+
+    .quick-action-btn i {
+        font-size: 1.25rem;
+    }
+
+    .menu-row {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="container-fluid">
+    <!-- Actions rapides -->
+    <div class="quick-action-container">
+        <h5 class="section-title">
+            <i class="bi bi-lightning-charge"></i> Actions rapides
+        </h5>
+        <a href="{{ url_for('scanner') }}" class="quick-action-btn">
+            <i class="bi bi-qr-code-scan"></i> Scanner QR
+        </a>
+        <a href="{{ url_for('demande_materiel') }}" class="quick-action-btn">
+            <i class="bi bi-clipboard-plus"></i> Nouvelle demande
+        </a>
+    </div>
+
+    <!-- ACTIONS PRINCIPALES -->
+    <div class="menu-section">
+        <h5><i class="bi bi-star-fill"></i> Actions principales</h5>
+        <div class="row g-4 menu-row">
+            <div class="col-12 col-md-4">
+                <a href="{{ url_for('magasin') }}" class="text-decoration-none">
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-shop text-primary"></i>
+                            <h6 class="card-title">Magasin</h6>
+                            <p class="text-muted">Vue d'ensemble du stock</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-12 col-md-4">
+                <a
+                    href="{{ url_for('historique_mouvements') }}"
+                    class="text-decoration-none"
+                >
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-graph-up text-success"></i>
+                            <h6 class="card-title">Mouvements</h6>
+                            <p class="text-muted">Historique des mouvements</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-12 col-md-4">
+                <a
+                    href="{{ url_for('alertes_stock') }}"
+                    class="text-decoration-none"
+                >
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i
+                                class="bi bi-exclamation-triangle text-warning"
+                            ></i>
+                            <h6 class="card-title">Alertes stock</h6>
+                            <p class="text-muted">Surveillance des stocks</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEMANDES -->
+    <div class="menu-section">
+        <h5><i class="bi bi-clipboard-check"></i> Demandes</h5>
+        <div class="row g-4 menu-row">
+            <div class="col-12 col-md-6">
+                <a
+                    href="{{ url_for('demande_materiel') }}"
+                    class="text-decoration-none"
+                >
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-clipboard-plus text-info"></i>
+                            <h6 class="card-title">Demande de matériel</h6>
+                            <p class="text-muted">Demander du matériel</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-12 col-md-6">
+                <a
+                    href="{{ url_for('gestion_demandes') }}"
+                    class="text-decoration-none"
+                >
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-gear text-secondary"></i>
+                            <h6 class="card-title">Gestion des demandes</h6>
+                            <p class="text-muted">Traiter les demandes</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOUVEMENTS -->
+    <div class="menu-section">
+        <h5><i class="bi bi-arrow-left-right"></i> Mouvements</h5>
+        <div class="row g-4 menu-row">
+            <div class="col-6 col-md-3">
+                <a
+                    href="{{ url_for('entree_stock') }}"
+                    class="text-decoration-none"
+                >
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-box-arrow-in-down text-success"></i>
+                            <h6 class="card-title">Entrée</h6>
+                            <p class="text-muted">Entrée de stock</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-6 col-md-3">
+                <a
+                    href="{{ url_for('sortie_stock') }}"
+                    class="text-decoration-none"
+                >
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-box-arrow-up text-danger"></i>
+                            <h6 class="card-title">Sortie</h6>
+                            <p class="text-muted">Sortie de stock</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-6 col-md-3">
+                <a
+                    href="{{ url_for('regule_stock') }}"
+                    class="text-decoration-none"
+                >
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-arrow-clockwise text-primary"></i>
+                            <h6 class="card-title">Régule</h6>
+                            <p class="text-muted">Ajustement d'inventaire</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-6 col-md-3">
+                <a
+                    href="{{ url_for('preparer_inventaire') }}"
+                    class="text-decoration-none"
+                >
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-list-check text-info"></i>
+                            <h6 class="card-title">Préparer inventaire</h6>
+                            <p class="text-muted">Créer une liste</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADMINISTRATION -->
+    <div class="admin-section">
+        <h5><i class="bi bi-gear-fill"></i> Administration</h5>
+        <div class="row g-4 menu-row">
+            <div class="col-6 col-md-3">
+                <a
+                    href="{{ url_for('gestion_produits') }}"
+                    class="text-decoration-none"
+                >
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-box text-primary"></i>
+                            <h6 class="card-title">Gestion Produits</h6>
+                            <p class="text-muted">Gérer les produits</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-6 col-md-3">
+                <a
+                    href="{{ url_for('gestion_tables') }}"
+                    class="text-decoration-none"
+                >
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-table text-success"></i>
+                            <h6 class="card-title">Gestion Tables</h6>
+                            <p class="text-muted">Tables d'atelier</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-6 col-md-3">
+                <a
+                    href="{{ url_for('gestion_fournisseurs') }}"
+                    class="text-decoration-none"
+                >
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-truck text-warning"></i>
+                            <h6 class="card-title">Fournisseurs</h6>
+                            <p class="text-muted">Gérer les fournisseurs</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-6 col-md-3">
+                <a
+                    href="{{ url_for('gestion_emplacements') }}"
+                    class="text-decoration-none"
+                >
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-geo-alt text-info"></i>
+                            <h6 class="card-title">Emplacements</h6>
+                            <p class="text-muted">Gérer les emplacements</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outils mobiles -->
+    <div class="menu-section">
+        <h5><i class="bi bi-phone"></i> Outils mobiles</h5>
+        <div class="row g-4 menu-row">
+            <div class="col-12 col-md-6">
+                <a href="{{ url_for('scanner') }}" class="text-decoration-none">
+                    <div class="card menu-card">
+                        <div class="card-body">
+                            <i class="bi bi-qr-code-scan text-primary"></i>
+                            <h6 class="card-title">Scanner QR Code</h6>
+                            <p class="text-muted">Scanner avec la caméra</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+    // Animation d'entrée pour les cartes
+    document.addEventListener("DOMContentLoaded", function () {
+        const cards = document.querySelectorAll(".menu-card");
+        cards.forEach((card, index) => {
+            card.style.opacity = "0";
+            card.style.transform = "translateY(20px)";
+
+            setTimeout(() => {
+                card.style.transition = "all 0.5s ease";
+                card.style.opacity = "1";
+                card.style.transform = "translateY(0)";
+            }, index * 80);
+        });
+
+        // Animation pour les boutons d'action rapide
+        const actionBtns = document.querySelectorAll(".quick-action-btn");
+        actionBtns.forEach((btn, index) => {
+            btn.style.opacity = "0";
+            btn.style.transform = "scale(0.9)";
+
+            setTimeout(() => {
+                btn.style.transition = "all 0.5s ease";
+                btn.style.opacity = "1";
+                btn.style.transform = "scale(1)";
+            }, index * 150 + 200);
+        });
+    });
+</script>
+{% endblock %}

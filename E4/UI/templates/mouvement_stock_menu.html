@@ -1,0 +1,185 @@
+{% extends "base.html" %} {% block title %}Mouvements de Stock - GMAO Mobile{%
+endblock %} {% block extra_css %}
+<style>
+    .movement-card {
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        height: 100%;
+        cursor: pointer;
+    }
+
+    .movement-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .movement-card .card-body {
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .movement-card i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .movement-card h5 {
+        font-weight: bold;
+        margin-bottom: 1rem;
+    }
+
+    .movement-card .text-muted {
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="text-center mb-4">
+        <h4><i class="bi bi-arrow-left-right"></i> Mouvements de Stock</h4>
+        <p class="text-muted">Sélectionnez le type de mouvement à effectuer</p>
+    </div>
+
+    <!-- Types de mouvements -->
+    <div class="row g-3">
+        <div class="col-12 col-md-6 col-lg-3">
+            <a
+                href="{{ url_for('entree_stock') }}"
+                class="text-decoration-none"
+            >
+                <div class="card movement-card">
+                    <div class="card-body">
+                        <i class="bi bi-box-arrow-in-down text-success"></i>
+                        <h5 class="card-title">Entrée de stock</h5>
+                        <p class="text-muted">Ajouter des produits au stock</p>
+                        <small class="text-success">
+                            <i class="bi bi-plus-circle"></i> Augmente le stock
+                        </small>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-3">
+            <a
+                href="{{ url_for('sortie_stock') }}"
+                class="text-decoration-none"
+            >
+                <div class="card movement-card">
+                    <div class="card-body">
+                        <i class="bi bi-box-arrow-up text-danger"></i>
+                        <h5 class="card-title">Sortie de stock</h5>
+                        <p class="text-muted">Retirer des produits du stock</p>
+                        <small class="text-danger">
+                            <i class="bi bi-dash-circle"></i> Diminue le stock
+                        </small>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-3">
+            <a
+                href="{{ url_for('regule_stock') }}"
+                class="text-decoration-none"
+            >
+                <div class="card movement-card">
+                    <div class="card-body">
+                        <i class="bi bi-arrow-clockwise text-primary"></i>
+                        <h5 class="card-title">Régule / Ajustement</h5>
+                        <p class="text-muted">
+                            Corriger le stock après inventaire
+                        </p>
+                        <small class="text-primary">
+                            <i class="bi bi-gear"></i> Ajuste le stock
+                        </small>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-3">
+            <a
+                href="{{ url_for('historique_mouvements') }}"
+                class="text-decoration-none"
+            >
+                <div class="card movement-card">
+                    <div class="card-body">
+                        <i class="bi bi-clock-history text-info"></i>
+                        <h5 class="card-title">Historique</h5>
+                        <p class="text-muted">
+                            Consulter l'historique des mouvements
+                        </p>
+                        <small class="text-info">
+                            <i class="bi bi-list"></i> Voir l'historique
+                        </small>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Actions rapides -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h5 class="mb-3">
+                <i class="bi bi-lightning-charge text-warning"></i>
+                Actions rapides
+            </h5>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-qr-code-scan text-primary"></i>
+                        Scanner pour mouvement
+                    </h6>
+                    <p class="card-text text-muted">
+                        Scannez un QR code pour effectuer rapidement un
+                        mouvement de stock
+                    </p>
+                    <a href="{{ url_for('scanner') }}" class="btn btn-primary">
+                        <i class="bi bi-qr-code-scan"></i> Scanner
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-search text-success"></i>
+                        Recherche produit
+                    </h6>
+                    <p class="card-text text-muted">
+                        Recherchez un produit pour effectuer un mouvement
+                    </p>
+                    <a href="{{ url_for('magasin') }}" class="btn btn-success">
+                        <i class="bi bi-search"></i> Rechercher
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+    // Animation d'entrée pour les cartes
+    document.addEventListener("DOMContentLoaded", function () {
+        const cards = document.querySelectorAll(".movement-card");
+        cards.forEach((card, index) => {
+            card.style.opacity = "0";
+            card.style.transform = "translateY(20px)";
+
+            setTimeout(() => {
+                card.style.transition = "all 0.5s ease";
+                card.style.opacity = "1";
+                card.style.transform = "translateY(0)";
+            }, index * 100);
+        });
+    });
+</script>
+{% endblock %}
