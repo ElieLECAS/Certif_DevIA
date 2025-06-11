@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+    # Base de données PostgreSQL
+    postgres:
+        image: postgres:15
+        container_name: gmao-postgres
+        environment:
+            POSTGRES_DB: ${POSTGRES_DB}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        ports:
+            - "${POSTGRES_PORT}:5432"
+        volumes:
+            # Volume persistant pour les données PostgreSQL
+            - postgres_data:/var/lib/postgresql/data
+            # Script d'initialisation - exécuté automatiquement au premier démarrage
+            - ./api/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+        restart: unless-stopped
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+
+
+volumes:
+    postgres_data:

@@ -1,0 +1,3 @@
+vanna[chromadb,openai,postgres]
+python-dotenv
+langfuse>=2.0.0
