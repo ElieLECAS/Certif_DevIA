@@ -15,7 +15,7 @@ services:
             # Volume persistant pour les données PostgreSQL
             - postgres_data:/var/lib/postgresql/data
             # Script d'initialisation - exécuté automatiquement au premier démarrage
-            - ./api/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+            - ./01-init.sql:/docker-entrypoint-initdb.d/01-init.sql
         restart: unless-stopped
         healthcheck:
             test:
