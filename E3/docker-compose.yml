@@ -12,9 +12,7 @@ services:
         ports:
             - "${POSTGRES_PORT}:5432"
         volumes:
-            # Volume persistant pour les données PostgreSQL
             - postgres_data:/var/lib/postgresql/data
-            # Script d'initialisation - exécuté automatiquement au premier démarrage
             - ./01-init.sql:/docker-entrypoint-initdb.d/01-init.sql
         restart: unless-stopped
         healthcheck:
