@@ -13,7 +13,7 @@ services:
             - "${POSTGRES_PORT}:5432"
         volumes:
             - postgres_data:/var/lib/postgresql/data
-            - ./api/init.sql:/docker-entrypoint-initdb.d/init.sql
+            - ./01-init.sql:/docker-entrypoint-initdb.d/01-init.sql
         restart: unless-stopped
         healthcheck:
             test:
@@ -27,7 +27,7 @@ services:
 
     # API FastAPI pour la gestion de stock
     api:
-        build: ./api
+        build: ./E4/api
         container_name: gmao-api
         ports:
             - "8010:8000"
@@ -43,7 +43,7 @@ services:
 
     # Application Flask Mobile
     flask-mobile:
-        build: ./UI
+        build: ./E4/UI
         container_name: gmao-flask-mobile
         ports:
             - "8080:5000"
