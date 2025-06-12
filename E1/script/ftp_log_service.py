@@ -698,60 +698,103 @@ class FTPLogService:
             cu_name = f"{cu_type}_{os.path.splitext(log_file_name)[0]}"
             
             # === ÉTAPE 1: CRÉER OU METTRE À JOUR LE CENTRE D'USINAGE ===
+            # Approche alternative : vérifier s'il existe déjà, sinon l'insérer
             self.cur.execute("""
-                INSERT INTO centre_usinage (nom, type_cu, description, actif)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (nom) DO UPDATE SET
-                    type_cu = EXCLUDED.type_cu,
-                    description = EXCLUDED.description
-                RETURNING id;
-            """, (cu_name, cu_type, f'Centre d\'usinage {cu_type} - {directory}', True))
+                SELECT id FROM centre_usinage WHERE nom = %s
+            """, (cu_name,))
             
-            centre_usinage_id = self.cur.fetchone()[0]
+            centre_result = self.cur.fetchone()
+            
+            if centre_result:
+                # Mettre à jour le centre existant
+                centre_usinage_id = centre_result[0]
+                self.cur.execute("""
+                    UPDATE centre_usinage 
+                    SET type_cu = %s, description = %s
+                    WHERE id = %s
+                """, (cu_type, f'Centre d\'usinage {cu_type} - {directory}', centre_usinage_id))
+            else:
+                # Créer un nouveau centre
+                self.cur.execute("""
+                    INSERT INTO centre_usinage (nom, type_cu, description, actif)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id;
+                """, (cu_name, cu_type, f'Centre d\'usinage {cu_type} - {directory}', True))
+                centre_usinage_id = self.cur.fetchone()[0]
             
             # === ÉTAPE 2: CRÉER OU METTRE À JOUR LA SESSION DE PRODUCTION ===
+            # Approche alternative : vérifier s'il existe déjà, sinon l'insérer
             self.cur.execute("""
-                INSERT INTO session_production (
-                    centre_usinage_id, date_production, heure_premiere_piece, heure_derniere_piece,
-                    heure_premier_machine_start, heure_dernier_machine_stop, total_pieces,
-                    duree_production_totale, temps_attente, temps_arret_volontaire,
-                    temps_production_effectif, taux_occupation, taux_attente,
-                    taux_arret_volontaire, fichier_log_source
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (centre_usinage_id, date_production) DO UPDATE SET
-                    heure_premiere_piece = EXCLUDED.heure_premiere_piece,
-                    heure_derniere_piece = EXCLUDED.heure_derniere_piece,
-                    heure_premier_machine_start = EXCLUDED.heure_premier_machine_start,
-                    heure_dernier_machine_stop = EXCLUDED.heure_dernier_machine_stop,
-                    total_pieces = EXCLUDED.total_pieces,
-                    duree_production_totale = EXCLUDED.duree_production_totale,
-                    temps_attente = EXCLUDED.temps_attente,
-                    temps_arret_volontaire = EXCLUDED.temps_arret_volontaire,
-                    temps_production_effectif = EXCLUDED.temps_production_effectif,
-                    taux_occupation = EXCLUDED.taux_occupation,
-                    taux_attente = EXCLUDED.taux_attente,
-                    taux_arret_volontaire = EXCLUDED.taux_arret_volontaire,
-                    fichier_log_source = EXCLUDED.fichier_log_source
-                RETURNING id;
-            """, (
-                centre_usinage_id, 
-                results["Date"], 
-                results["PremierePiece"], 
-                results["DernierePiece"],
-                results["PremierMachineStart"], 
-                results["DernierMachineStop"], 
-                results["TotalPieces"],
-                Decimal(str(results["DureeProduction"] or 0)), 
-                Decimal(str(results["TempsAttente"] or 0)),
-                Decimal(str(results["TempsArretVolontaire"] or 0)), 
-                Decimal(str(results["TempsProductionEffectif"] or 0)),
-                Decimal(str(results["TauxOccupation"] or 0)), 
-                Decimal(str(results["TauxAttente"] or 0)),
-                Decimal(str(results["TauxArretVolontaire"] or 0)), 
-                f"{directory}/{log_file_name}"
-            ))
+                SELECT id FROM session_production 
+                WHERE centre_usinage_id = %s AND date_production = %s
+            """, (centre_usinage_id, results["Date"]))
             
-            session_id = self.cur.fetchone()[0]
+            session_result = self.cur.fetchone()
+            
+            if session_result:
+                # Mettre à jour la session existante
+                session_id = session_result[0]
+                self.cur.execute("""
+                    UPDATE session_production SET
+                        heure_premiere_piece = %s,
+                        heure_derniere_piece = %s,
+                        heure_premier_machine_start = %s,
+                        heure_dernier_machine_stop = %s,
+                        total_pieces = %s,
+                        duree_production_totale = %s,
+                        temps_attente = %s,
+                        temps_arret_volontaire = %s,
+                        temps_production_effectif = %s,
+                        taux_occupation = %s,
+                        taux_attente = %s,
+                        taux_arret_volontaire = %s,
+                        fichier_log_source = %s
+                    WHERE id = %s
+                """, (
+                    results["PremierePiece"], 
+                    results["DernierePiece"],
+                    results["PremierMachineStart"], 
+                    results["DernierMachineStop"], 
+                    results["TotalPieces"],
+                    Decimal(str(results["DureeProduction"] or 0)), 
+                    Decimal(str(results["TempsAttente"] or 0)),
+                    Decimal(str(results["TempsArretVolontaire"] or 0)), 
+                    Decimal(str(results["TempsProductionEffectif"] or 0)),
+                    Decimal(str(results["TauxOccupation"] or 0)), 
+                    Decimal(str(results["TauxAttente"] or 0)),
+                    Decimal(str(results["TauxArretVolontaire"] or 0)), 
+                    f"{directory}/{log_file_name}",
+                    session_id
+                ))
+            else:
+                # Créer une nouvelle session
+                self.cur.execute("""
+                    INSERT INTO session_production (
+                        centre_usinage_id, date_production, heure_premiere_piece, heure_derniere_piece,
+                        heure_premier_machine_start, heure_dernier_machine_stop, total_pieces,
+                        duree_production_totale, temps_attente, temps_arret_volontaire,
+                        temps_production_effectif, taux_occupation, taux_attente,
+                        taux_arret_volontaire, fichier_log_source
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id;
+                """, (
+                    centre_usinage_id, 
+                    results["Date"], 
+                    results["PremierePiece"], 
+                    results["DernierePiece"],
+                    results["PremierMachineStart"], 
+                    results["DernierMachineStop"], 
+                    results["TotalPieces"],
+                    Decimal(str(results["DureeProduction"] or 0)), 
+                    Decimal(str(results["TempsAttente"] or 0)),
+                    Decimal(str(results["TempsArretVolontaire"] or 0)), 
+                    Decimal(str(results["TempsProductionEffectif"] or 0)),
+                    Decimal(str(results["TauxOccupation"] or 0)), 
+                    Decimal(str(results["TauxAttente"] or 0)),
+                    Decimal(str(results["TauxArretVolontaire"] or 0)), 
+                    f"{directory}/{log_file_name}"
+                ))
+                session_id = self.cur.fetchone()[0]
             
             # === ÉTAPE 3: SUPPRIMER LES ANCIENNES DONNÉES DÉTAILLÉES ===
             # (pour éviter les doublons si on retraite le même fichier)
