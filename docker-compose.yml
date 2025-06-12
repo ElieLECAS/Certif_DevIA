@@ -56,6 +56,28 @@ services:
         depends_on:
             - api
         restart: unless-stopped
+    
+    ollama:
+        image: ollama/ollama:latest
+        container_name: gmao-ollama
+        ports:
+            - "11434:11434"
+        volumes:
+            - .E2/models:/root/.ollama/models
+        entrypoint: |
+            /bin/bash -c "
+            ollama serve &
+            echo 'Attente du démarrage du serveur Ollama...'
+            while ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; do
+                sleep 2
+            done
+            echo 'Serveur Ollama prêt, téléchargement du modèle llama3.2:1b...'
+            ollama pull llama3.2:1b
+            echo 'Modèle téléchargé avec succès!'
+            wait
+            "
+        restart: unless-stopped
+
 
 volumes:
     postgres_data:
