@@ -35,7 +35,7 @@ services:
             - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
             - PYTHONUNBUFFERED=1
         volumes:
-            - ./api:/app
+            - ./E4/api:/app
         depends_on:
             postgres:
                 condition: service_healthy
@@ -52,7 +52,7 @@ services:
             - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
             - FLASK_ENV=production
         volumes:
-            - ./UI:/app
+            - ./E4/UI:/app
         depends_on:
             - api
         restart: unless-stopped
