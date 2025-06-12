@@ -192,7 +192,7 @@ yarn-error.log*
 app.log
 error.log
 access.log
-
+*.LOG
 # Profiling
 *.prof
 
