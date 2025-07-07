@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # Base de données PostgreSQL pour la production
+  postgres-prod:
+    image: postgres:15
+    container_name: postgres-prod
+    environment:
+      POSTGRES_DB: taskmanager_prod
+      POSTGRES_USER: prod_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prod_password}
+    ports:
+      - "5433:5432"  # Port différent pour éviter les conflits
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prod_user -d taskmanager_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - prod-network
+    restart: unless-stopped
+
+  # Application FastAPI pour la production
+  fastapi-prod:
+    image: monrepo/fastapi-prod:latest
+    container_name: fastapi-prod
+    ports:
+      - "8001:8000"  # Port différent pour éviter les conflits
+    environment:
+      - DATABASE_URL=postgresql://prod_user:${POSTGRES_PASSWORD:-prod_password}@postgres-prod:5432/taskmanager_prod
+      - ENVIRONMENT=production
+      - DEBUG=false
+    depends_on:
+      postgres-prod:
+        condition: service_healthy
+    networks:
+      - prod-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Monitoring Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - prod-network
+    restart: unless-stopped
+
+  # Visualisation Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - prod-network
+    restart: unless-stopped
+
+volumes:
+  postgres_prod_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  prod-network:
+    driver: bridge 
