@@ -1,0 +1,90 @@
+{% extends "base.html" %} {% block title %}Demandes - GMAO Mobile{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-clipboard-check"></i> Demandes</h4>
+    <a href="{{ url_for('nouvelle_demande') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Nouvelle
+    </a>
+</div>
+
+{% if demandes %} {% for demande in demandes %}
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <h6 class="card-title mb-0">Demande #{{ demande.id }}</h6>
+            {% set status_class = 'bg-warning' if demande.statut == 'En attente'
+            else 'bg-success' if demande.statut == 'Approuvée' else 'bg-danger'
+            %}
+            <span class="badge {{ status_class }}">{{ demande.statut }}</span>
+        </div>
+
+        <p class="text-muted small mb-2">
+            <i class="bi bi-person"></i> {{ demande.demandeur }}
+            <br />
+            <i class="bi bi-calendar"></i> {{
+            demande.date_demande.strftime('%d/%m/%Y %H:%M') if
+            demande.date_demande else 'N/A' }}
+        </p>
+
+        <p class="mb-2">{{ demande.motif }}</p>
+
+        <div class="d-flex gap-2">
+            <button
+                class="btn btn-outline-primary btn-sm"
+                onclick="viewDemande({{ demande.id }})"
+            >
+                <i class="bi bi-eye"></i> Voir
+            </button>
+            {% if demande.statut == 'En attente' %}
+            <button
+                class="btn btn-outline-success btn-sm"
+                onclick="updateDemande({{ demande.id }}, 'Approuvée')"
+            >
+                <i class="bi bi-check"></i> Approuver
+            </button>
+            <button
+                class="btn btn-outline-danger btn-sm"
+                onclick="updateDemande({{ demande.id }}, 'Rejetée')"
+            >
+                <i class="bi bi-x"></i> Rejeter
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endfor %} {% else %}
+<div class="text-center py-5">
+    <i class="bi bi-clipboard display-1 text-muted"></i>
+    <h5 class="text-muted mt-3">Aucune demande</h5>
+    <a href="{{ url_for('nouvelle_demande') }}" class="btn btn-primary mt-2">
+        Créer une demande
+    </a>
+</div>
+{% endif %} {% endblock %} {% block extra_js %}
+<script>
+    function viewDemande(id) {
+        // Implémenter la vue détaillée
+        showNotification("Fonctionnalité en cours de développement", "info");
+    }
+
+    function updateDemande(id, statut) {
+        if (confirm(`Confirmer le changement de statut vers "${statut}" ?`)) {
+            makeRequest(`/demandes/${id}`, "PUT", { statut: statut })
+                .then((response) => {
+                    if (response.success) {
+                        showNotification("Statut mis à jour", "success");
+                        location.reload();
+                    } else {
+                        showNotification(
+                            "Erreur lors de la mise à jour",
+                            "danger"
+                        );
+                    }
+                })
+                .catch((error) => {
+                    showNotification("Erreur lors de la mise à jour", "danger");
+                });
+        }
+    }
+</script>
+{% endblock %}

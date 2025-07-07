@@ -1,0 +1,769 @@
+{% extends "base.html" %} {% block title %}{{ fournisseur.nom_fournisseur }} -
+GMAO Mobile{% endblock %} {% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .product-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        color: white;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .product-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .product-reference {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        font-family: "Courier New", monospace;
+    }
+
+    .stock-badge {
+        font-size: 1.2rem;
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-weight: 600;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .info-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .info-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-header-custom {
+        background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+        border-bottom: 2px solid #dee2e6;
+        padding: 1rem 1.5rem;
+    }
+
+    .card-header-custom h6 {
+        margin: 0;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        padding: 1.5rem;
+    }
+
+    .info-item {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem;
+        border-left: 4px solid #007bff;
+        transition: all 0.3s ease;
+    }
+
+    .info-item:hover {
+        background: #e3f2fd;
+        border-left-color: #0056b3;
+    }
+
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .info-value {
+        color: #6c757d;
+        font-size: 1rem;
+        word-break: break-word;
+    }
+
+    .section-icon {
+        width: 24px;
+        height: 24px;
+        margin-right: 0.5rem;
+    }
+
+    .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+        border-color: #007bff;
+        transform: translateY(-3px);
+    }
+
+    .stat-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    .action-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .action-btn {
+        border-radius: 12px;
+        padding: 1rem;
+        font-weight: 600;
+        border: none;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .back-btn {
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .back-btn:hover {
+        border-color: #007bff;
+        background: #f8f9fa;
+        transform: translateY(-2px);
+    }
+
+    .chart-container {
+        background: white;
+        border-radius: 10px;
+        padding: 1rem;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .table-responsive {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table thead th {
+        background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+        border: none;
+        font-weight: 600;
+        color: #495057;
+        padding: 1rem 0.75rem;
+    }
+
+    .table tbody td {
+        padding: 0.75rem;
+        vertical-align: middle;
+        border-color: #f1f3f4;
+    }
+
+    .table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    @media (max-width: 768px) {
+        .product-header {
+            padding: 1.5rem;
+        }
+
+        .info-grid {
+            grid-template-columns: 1fr;
+            padding: 1rem;
+        }
+
+        .stats-container {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .action-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="container-fluid px-3">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10 col-xl-8">
+            <!-- En-tête avec retour -->
+            <div class="d-flex align-items-center mb-4">
+                <button onclick="history.back()" class="btn back-btn me-3">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+                <h4 class="mb-0 text-dark">Détail fournisseur</h4>
+            </div>
+
+            <!-- En-tête fournisseur moderne -->
+            <div class="product-header">
+                <div
+                    class="d-flex justify-content-between align-items-start flex-wrap"
+                >
+                    <div class="flex-grow-1">
+                        <div class="product-title">
+                            <i class="bi bi-truck me-2"></i>{{
+                            fournisseur.nom_fournisseur }}
+                        </div>
+                        <div class="product-reference">
+                            🏢 {{ fournisseur.adresse or 'Adresse non
+                            renseignée' }}
+                        </div>
+                        {% if fournisseur.contact1_email %}
+                        <div class="mt-2 opacity-75">
+                            <small>✉️ {{ fournisseur.contact1_email }}</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="ms-3">
+                        <span
+                            class="badge stock-badge bg-{{ 'success' if fournisseur.statut != 'Inactif' else 'danger' }}"
+                        >
+                            {{ fournisseur.statut or 'Actif' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistiques rapides -->
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-number text-primary">
+                        {{ stats.nb_produits }}
+                    </div>
+                    <div class="stat-label">Produits référencés</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number text-success">
+                        {{ "%.0f"|format(stats.valeur_stock_total) }} €
+                    </div>
+                    <div class="stat-label">Valeur du stock</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number text-warning">
+                        {{ stats.nb_produits_stock_faible }}
+                    </div>
+                    <div class="stat-label">Stock faible</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number text-info">
+                        {{ "%.1f"|format((stats.valeur_stock_total /
+                        stats.nb_produits) if stats.nb_produits > 0 else 0) }} €
+                    </div>
+                    <div class="stat-label">Valeur moyenne</div>
+                </div>
+            </div>
+
+            <!-- Informations principales -->
+            <div class="info-card">
+                <div class="card-header-custom">
+                    <h6>
+                        <i class="bi bi-info-circle section-icon"></i>
+                        Informations générales
+                    </h6>
+                </div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-building text-primary"></i>
+                            Nom du fournisseur
+                        </div>
+                        <div class="info-value">
+                            {{ fournisseur.nom_fournisseur }}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-geo-alt text-success"></i>
+                            Adresse
+                        </div>
+                        <div class="info-value">
+                            {{ fournisseur.adresse or 'Non renseignée' }}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-check-circle text-warning"></i>
+                            Statut
+                        </div>
+                        <div class="info-value">
+                            <span
+                                class="badge bg-{{ 'success' if fournisseur.statut != 'Inactif' else 'danger' }}"
+                            >
+                                {{ fournisseur.statut or 'Actif' }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-calendar text-info"></i>
+                            Date de création
+                        </div>
+                        <div class="info-value">
+                            {{ fournisseur.date_creation.strftime('%d/%m/%Y') if
+                            fournisseur.date_creation else 'Non renseignée' }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contacts -->
+            <div class="info-card">
+                <div class="card-header-custom">
+                    <h6>
+                        <i class="bi bi-person-lines-fill section-icon"></i>
+                        Contacts
+                    </h6>
+                </div>
+                <div class="info-grid">
+                    <!-- Contact 1 -->
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-person text-primary"></i>
+                            Contact principal
+                        </div>
+                        <div class="info-value">
+                            {% if fournisseur.contact1_nom or
+                            fournisseur.contact1_prenom %}
+                            <strong
+                                >{{ fournisseur.contact1_nom or '' }} {{
+                                fournisseur.contact1_prenom or '' }}</strong
+                            >
+                            {% if fournisseur.contact1_fonction %}<br /><em
+                                >{{ fournisseur.contact1_fonction }}</em
+                            >{% endif %} {% endif %} {% if
+                            fournisseur.contact1_tel_fixe %}<br />📞 {{
+                            fournisseur.contact1_tel_fixe }}{% endif %} {% if
+                            fournisseur.contact1_tel_mobile %}<br />📱 {{
+                            fournisseur.contact1_tel_mobile }}{% endif %} {% if
+                            fournisseur.contact1_email %}<br />✉️ {{
+                            fournisseur.contact1_email }}{% endif %} {% if not
+                            (fournisseur.contact1_nom or
+                            fournisseur.contact1_prenom or
+                            fournisseur.contact1_tel_fixe or
+                            fournisseur.contact1_tel_mobile or
+                            fournisseur.contact1_email or
+                            fournisseur.contact1_fonction) %}
+                            <span class="text-muted">Non renseigné</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Contact 2 -->
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-person text-info"></i>
+                            Contact secondaire
+                        </div>
+                        <div class="info-value">
+                            {% if fournisseur.contact2_nom or
+                            fournisseur.contact2_prenom %}
+                            <strong
+                                >{{ fournisseur.contact2_nom or '' }} {{
+                                fournisseur.contact2_prenom or '' }}</strong
+                            >
+                            {% if fournisseur.contact2_fonction %}<br /><em
+                                >{{ fournisseur.contact2_fonction }}</em
+                            >{% endif %} {% endif %} {% if
+                            fournisseur.contact2_tel_fixe %}<br />📞 {{
+                            fournisseur.contact2_tel_fixe }}{% endif %} {% if
+                            fournisseur.contact2_tel_mobile %}<br />📱 {{
+                            fournisseur.contact2_tel_mobile }}{% endif %} {% if
+                            fournisseur.contact2_email %}<br />✉️ {{
+                            fournisseur.contact2_email }}{% endif %} {% if not
+                            (fournisseur.contact2_nom or
+                            fournisseur.contact2_prenom or
+                            fournisseur.contact2_tel_fixe or
+                            fournisseur.contact2_tel_mobile or
+                            fournisseur.contact2_email or
+                            fournisseur.contact2_fonction) %}
+                            <span class="text-muted">Non renseigné</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graphiques -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <div class="card-header-custom">
+                            <h6>
+                                <i class="bi bi-pie-chart section-icon"></i>
+                                Répartition des stocks
+                            </h6>
+                        </div>
+                        <div class="chart-container" style="height: 300px">
+                            <canvas id="stockChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <div class="card-header-custom">
+                            <h6>
+                                <i class="bi bi-bar-chart section-icon"></i>
+                                Valeur par catégorie
+                            </h6>
+                        </div>
+                        <div class="chart-container" style="height: 300px">
+                            <canvas id="categorieChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions rapides -->
+            <div class="info-card">
+                <div class="card-header-custom">
+                    <h6>
+                        <i class="bi bi-lightning section-icon"></i>
+                        Actions rapides
+                    </h6>
+                </div>
+                <div class="action-grid" style="padding: 1.5rem">
+                    <a
+                        href="/gestion-fournisseurs"
+                        class="btn btn-outline-secondary action-btn"
+                    >
+                        <i class="bi bi-arrow-left me-2"></i>
+                        Retour aux fournisseurs
+                    </a>
+                    <button
+                        class="btn btn-warning action-btn"
+                        onclick="modifierFournisseur()"
+                    >
+                        <i class="bi bi-pencil me-2"></i>
+                        Modifier le fournisseur
+                    </button>
+                    <button
+                        class="btn btn-info action-btn"
+                        onclick="exporterDonnees()"
+                    >
+                        <i class="bi bi-download me-2"></i>
+                        Exporter les données
+                    </button>
+                    <button
+                        class="btn btn-success action-btn"
+                        onclick="ajouterProduit()"
+                    >
+                        <i class="bi bi-plus-circle me-2"></i>
+                        Ajouter un produit
+                    </button>
+                </div>
+            </div>
+
+            <!-- Liste des produits -->
+            <div class="info-card">
+                <div
+                    class="card-header-custom d-flex justify-content-between align-items-center"
+                >
+                    <h6 class="mb-0">
+                        <i class="bi bi-box-seam section-icon"></i>
+                        Produits du fournisseur ({{ produits|length }})
+                    </h6>
+                    <div class="d-flex gap-2">
+                        <input
+                            type="text"
+                            class="form-control form-control-sm"
+                            id="searchProduits"
+                            placeholder="Rechercher..."
+                            style="width: 200px"
+                        />
+                        <select
+                            class="form-select form-select-sm"
+                            id="filterStatut"
+                            style="width: 150px"
+                        >
+                            <option value="">Tous les statuts</option>
+                            <option value="normal">Stock normal</option>
+                            <option value="faible">Stock faible</option>
+                            <option value="critique">Stock critique</option>
+                            <option value="surstock">Surstock</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table" id="produitsTable">
+                        <thead>
+                            <tr>
+                                <th>Référence</th>
+                                <th>Désignation</th>
+                                <th>Catégorie</th>
+                                <th>Quantité</th>
+                                <th>Statut Stock</th>
+                                <th>Prix unitaire</th>
+                                <th>Valeur totale</th>
+                                <th>Emplacement</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for produit in produits %}
+                            <tr data-statut="{{ get_stock_status(produit) }}">
+                                <td>
+                                    <code
+                                        >{{ produit.reference or produit.code
+                                        }}</code
+                                    >
+                                </td>
+                                <td>
+                                    <strong
+                                        >{{ produit.produits or
+                                        produit.designation }}</strong
+                                    >
+                                    {% if produit.reference_fournisseur %}
+                                    <br /><small class="text-muted"
+                                        >Réf. fournisseur: {{
+                                        produit.reference_fournisseur }}</small
+                                    >
+                                    {% endif %}
+                                </td>
+                                <td>{{ produit.categorie or '-' }}</td>
+                                <td>
+                                    <span
+                                        class="badge bg-{{ 'success' if produit.quantite > produit.stock_min else 'warning' if produit.quantite > 0 else 'danger' }}"
+                                    >
+                                        {{ produit.quantite }}
+                                    </span>
+                                    <small class="text-muted"
+                                        >/ {{ produit.stock_min }}-{{
+                                        produit.stock_max }}</small
+                                    >
+                                </td>
+                                <td>
+                                    <span
+                                        class="badge bg-{{ 'success' if get_stock_status(produit) == 'normal' else 'warning' if get_stock_status(produit) == 'faible' else 'danger' if get_stock_status(produit) == 'critique' else 'info' }}"
+                                    >
+                                        {{ get_stock_status_text(produit) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{ "%.2f"|format(produit.prix_unitaire or 0)
+                                    }} €
+                                </td>
+                                <td class="fw-bold">
+                                    {{ "%.2f"|format((produit.quantite or 0) *
+                                    (produit.prix_unitaire or 0)) }} €
+                                </td>
+                                <td>
+                                    {% if produit.site or produit.lieu or
+                                    produit.emplacement %}
+                                    <small>
+                                        {% if produit.site %}{{ produit.site
+                                        }}{% endif %} {% if produit.lieu %} > {{
+                                        produit.lieu }}{% endif %} {% if
+                                        produit.emplacement %} > {{
+                                        produit.emplacement }}{% endif %}
+                                    </small>
+                                    {% else %}
+                                    <span class="text-muted">Non défini</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a
+                                        href="/produit/{{ produit.reference or produit.code }}"
+                                        class="btn btn-outline-primary btn-sm"
+                                        title="Voir détails"
+                                    >
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Données pour les graphiques
+        const produitsData = {{ produits | tojson }};
+
+        // Graphique répartition des stocks
+        const stockCtx = document.getElementById('stockChart').getContext('2d');
+        const stockCounts = {
+            'normal': 0,
+            'faible': 0,
+            'critique': 0,
+            'surstock': 0
+        };
+
+        produitsData.forEach(produit => {
+            const status = getStockStatus(produit);
+            stockCounts[status]++;
+        });
+
+        new Chart(stockCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Stock Normal', 'Stock Faible', 'Stock Critique', 'Surstock'],
+                datasets: [{
+                    data: [stockCounts.normal, stockCounts.faible, stockCounts.critique, stockCounts.surstock],
+                    backgroundColor: ['#28a745', '#ffc107', '#dc3545', '#17a2b8'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Graphique valeur par catégorie
+        const categorieCtx = document.getElementById('categorieChart').getContext('2d');
+        const categorieValues = {};
+
+        produitsData.forEach(produit => {
+            const categorie = produit.categorie || 'Non définie';
+            const valeur = (produit.quantite || 0) * (produit.prix_unitaire || 0);
+            if (!categorieValues[categorie]) {
+                categorieValues[categorie] = 0;
+            }
+            categorieValues[categorie] += valeur;
+        });
+
+        const categories = Object.keys(categorieValues);
+        const valeurs = Object.values(categorieValues);
+
+        new Chart(categorieCtx, {
+            type: 'bar',
+            data: {
+                labels: categories,
+                datasets: [{
+                    label: 'Valeur (€)',
+                    data: valeurs,
+                    backgroundColor: '#28a745',
+                    borderColor: '#1e7e34',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toFixed(2) + ' €';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        // Fonction pour déterminer le statut du stock (côté client)
+        function getStockStatus(produit) {
+            const quantite = produit.quantite || 0;
+            const stock_min = produit.stock_min || 0;
+            const stock_max = produit.stock_max || 100;
+
+            const seuil_alerte = stock_min + (stock_max - stock_min) * 0.3;
+
+            if (quantite < stock_min) {
+                return 'critique';
+            } else if (quantite > stock_max) {
+                return 'surstock';
+            } else if (quantite <= seuil_alerte) {
+                return 'faible';
+            } else {
+                return 'normal';
+            }
+        }
+
+        // Filtrage et recherche des produits
+        const searchInput = document.getElementById('searchProduits');
+        const filterStatut = document.getElementById('filterStatut');
+        const tableRows = document.querySelectorAll('#produitsTable tbody tr');
+
+        function filterProducts() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const statutFilter = filterStatut.value;
+
+            tableRows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const statut = row.dataset.statut;
+
+                const matchesSearch = text.includes(searchTerm);
+                const matchesStatut = !statutFilter || statut === statutFilter;
+
+                row.style.display = (matchesSearch && matchesStatut) ? '' : 'none';
+            });
+        }
+
+        searchInput.addEventListener('input', filterProducts);
+        filterStatut.addEventListener('change', filterProducts);
+    });
+
+    function modifierFournisseur() {
+        // Rediriger vers la page de gestion des fournisseurs
+        window.location.href = '/gestion-fournisseurs';
+    }
+
+    function exporterDonnees() {
+        // Fonction pour exporter les données du fournisseur
+        alert('Fonctionnalité d\'export en cours de développement');
+    }
+
+    function ajouterProduit() {
+        // Rediriger vers la page d'ajout de produit
+        window.location.href = '/gestion-produits';
+    }
+</script>
+{% endblock %}

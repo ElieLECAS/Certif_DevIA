@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+    # Base de données PostgreSQL
+    postgres:
+        image: postgres:15
+        container_name: gmao-postgres-prod
+        environment:
+            POSTGRES_DB: ${POSTGRES_DB}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            TZ: Europe/Paris
+            # Variables pour le superuser (optionnelles)
+            SUPERUSER_USERNAME: ${SUPERUSER_USERNAME:-}
+            SUPERUSER_EMAIL: ${SUPERUSER_EMAIL:-}
+            SUPERUSER_NOM_COMPLET: ${SUPERUSER_NOM_COMPLET:-}
+            SUPERUSER_PASSWORD: ${SUPERUSER_PASSWORD:-}
+            SUPERUSER_ROLE: ${SUPERUSER_ROLE:-}
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        restart: unless-stopped
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+
+    # API FastAPI avec interface web intégrée - IMAGE DOCKER HUB
+    api:
+        image: elielecas/gmao-api:latest
+        container_name: gmao-api-web-prod
+        ports:
+            - "3738:8000" # Interface web sur le port 8080
+        environment:
+            - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+            - PYTHONUNBUFFERED=1
+            - SUPERUSER_USERNAME=${SUPERUSER_USERNAME:-}
+            - SUPERUSER_EMAIL=${SUPERUSER_EMAIL:-}
+            - SUPERUSER_NOM_COMPLET=${SUPERUSER_NOM_COMPLET:-}
+            - SUPERUSER_PASSWORD=${SUPERUSER_PASSWORD:-}
+            - SUPERUSER_ROLE=${SUPERUSER_ROLE:-}
+        depends_on:
+            postgres:
+                condition: service_healthy
+        restart: unless-stopped
+
+    # Portainer pour la gestion des conteneurs
+    portainer:
+        image: portainer/portainer-ce:latest
+        container_name: gmao-portainer
+        ports:
+            - "9000:9000"
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - portainer_data:/data
+        restart: unless-stopped
+        command: -H unix:///var/run/docker.sock
+
+volumes:
+    postgres_data:
+    portainer_data:

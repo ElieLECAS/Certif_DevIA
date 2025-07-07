@@ -1,0 +1,1531 @@
+{% extends "base.html" %} {% block title %}Gestion des Produits{% endblock %} {%
+block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="bi bi-box-seam text-primary"></i>
+                        Gestion des Produits
+                    </h1>
+                    <p class="text-muted mb-0">
+                        Gérer les produits, fournisseurs et emplacements
+                    </p>
+                </div>
+                <div class="btn-group">
+                    <button
+                        class="btn btn-primary"
+                        data-bs-toggle="modal"
+                        data-bs-target="#nouveauProduitModal"
+                    >
+                        <i class="bi bi-plus-circle"></i> Nouveau Produit
+                    </button>
+                    <button
+                        class="btn btn-success"
+                        data-bs-toggle="modal"
+                        data-bs-target="#importProduitModal"
+                    >
+                        <i class="bi bi-file-earmark-excel"></i> Importer Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Total Produits</h6>
+                            <h3 class="mb-0">{{ produits|length }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-box-seam fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Fournisseurs</h6>
+                            <h3 class="mb-0">{{ fournisseurs|length }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-truck fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Emplacements</h6>
+                            <h3 class="mb-0">{{ emplacements|length }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-geo-alt fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Stock Critique</h6>
+                            <h3 class="mb-0">
+                                {{ stock_critique_count or 0 }}
+                            </h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-exclamation-triangle fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres et recherche -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Rechercher</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="searchInput"
+                                placeholder="Référence, nom, description..."
+                            />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Fournisseur</label>
+                            <select class="form-select" id="fournisseurFilter">
+                                <option value="">Tous les fournisseurs</option>
+                                {% for fournisseur in fournisseurs %}
+                                <option value="{{ fournisseur.nom }}">
+                                    {{ fournisseur.nom }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Emplacement</label>
+                            <select class="form-select" id="emplacementFilter">
+                                <option value="">Tous les emplacements</option>
+                                {% for emplacement in emplacements_actifs %}
+                                <option value="{{ emplacement.nom }}">
+                                    {{ emplacement.nom }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Statut Stock</label>
+                            <select class="form-select" id="statutFilter">
+                                <option value="">Tous</option>
+                                <option value="critique">🔴 Critique</option>
+                                <option value="faible">🟠 Faible</option>
+                                <option value="normal">🟢 Normal</option>
+                                <option value="surstock">🟡 Surstock</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau des produits -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-table"></i> Liste des Produits
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table
+                            class="table table-hover mb-0"
+                            id="produitsTable"
+                        >
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Référence</th>
+                                    <th>Nom</th>
+                                    <th>Description</th>
+                                    <th>Stock</th>
+                                    <th>Statut</th>
+                                    <th>Fournisseur</th>
+                                    <th>Emplacement</th>
+                                    <th>Prix</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for produit in produits %}
+                                <tr
+                                    data-id="{{ produit.id }}"
+                                    data-reference="{{ produit.reference }}"
+                                    data-fournisseur="{{ produit.fournisseur or '' }}"
+                                    data-emplacement="{{ produit.emplacement or '' }}"
+                                    data-statut="{{ get_stock_status(produit) }}"
+                                >
+                                    <td>
+                                        <strong class="text-primary"
+                                            >{{ produit.reference }}</strong
+                                        >
+                                    </td>
+                                    <td>
+                                        {{ produit.produits or produit.nom or
+                                        '-' }}
+                                    </td>
+                                    <td>
+                                        <span class="text-muted">
+                                            {{ (produit.description or '')[:50]
+                                            }} {% if produit.description and
+                                            produit.description|length > 50
+                                            %}...{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary"
+                                            >{{ produit.quantite or 0 }}</span
+                                        >
+                                        <small class="text-muted"
+                                            >/ {{ produit.seuil_alerte or 0
+                                            }}</small
+                                        >
+                                    </td>
+                                    <td>
+                                        <span
+                                            class="badge bg-{{ 'danger' if get_stock_status(produit) == 'critique' else 'warning' if get_stock_status(produit) == 'faible' else 'success' if get_stock_status(produit) == 'normal' else 'info' }}"
+                                        >
+                                            {{ get_stock_status_text(produit) }}
+                                        </span>
+                                    </td>
+                                    <td>{{ produit.fournisseur or '-' }}</td>
+                                    <td>{{ produit.emplacement or '-' }}</td>
+                                    <td>
+                                        {% if produit.prix_unitaire %} {% set
+                                        prix = produit.prix_unitaire|float %} {%
+                                        if prix > 0 %} {{ "%.2f"|format(prix) }}
+                                        € {% else %} - {% endif %} {% else %} -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button
+                                                class="btn btn-outline-primary"
+                                                onclick="voirProduit('{{ produit.reference }}')"
+                                                title="Voir détails"
+                                            >
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button
+                                                class="btn btn-outline-warning"
+                                                onclick="modifierProduit('{{ produit.reference }}')"
+                                                title="Modifier"
+                                            >
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button
+                                                class="btn btn-outline-danger"
+                                                onclick="supprimerProduit('{{ produit.reference }}')"
+                                                title="Supprimer"
+                                            >
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouveau Produit -->
+<div class="modal fade" id="nouveauProduitModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-plus-circle text-primary"></i>
+                    Nouveau Produit
+                </h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                ></button>
+            </div>
+            <form id="nouveauProduitForm">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <!-- Première ligne : Référence fournisseur -->
+                        <div class="col-md-6">
+                            <label class="form-label"
+                                >Référence fournisseur</label
+                            >
+                            <input
+                                type="text"
+                                class="form-control"
+                                name="reference_fournisseur"
+                                placeholder="Référence du fournisseur"
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <!-- Espace réservé pour équilibrer la mise en page -->
+                        </div>
+
+                        <!-- Deuxième ligne : Désignation -->
+                        <div class="col-12">
+                            <label class="form-label">Désignation *</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                name="designation"
+                                placeholder="Nom/désignation du produit"
+                                required
+                            />
+                        </div>
+
+                        <!-- Troisième ligne : Description -->
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea
+                                class="form-control"
+                                name="description"
+                                rows="3"
+                                placeholder="Description détaillée du produit"
+                            ></textarea>
+                        </div>
+
+                        <!-- Quatrième ligne : Unités -->
+                        <div class="col-md-6">
+                            <label class="form-label">Unité de stockage</label>
+                            <select class="form-select" name="unite_stockage">
+                                <option value="">Sélectionner une unité</option>
+                                <option value="PCE">PCE (Pièce)</option>
+                                <option value="BOITE 5">BOITE 5</option>
+                                <option value="BOITE 10">BOITE 10</option>
+                                <option value="par 1">par 1</option>
+                                <option value="Boite 2000">Boite 2000</option>
+                                <option value="kg">kg (Kilogramme)</option>
+                                <option value="L">L (Litre)</option>
+                                <option value="m">m (Mètre)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Unité de commande</label>
+                            <select class="form-select" name="unite_commande">
+                                <option value="">Sélectionner une unité</option>
+                                <option value="BOITE 5">BOITE 5</option>
+                                <option value="BOITE 10">BOITE 10</option>
+                                <option value="par 1">par 1</option>
+                                <option value="Boite 2000">Boite 2000</option>
+                                <option value="PCE">PCE (Pièce)</option>
+                                <option value="kg">kg (Kilogramme)</option>
+                                <option value="L">L (Litre)</option>
+                                <option value="m">m (Mètre)</option>
+                            </select>
+                        </div>
+
+                        <!-- Cinquième ligne : Stocks -->
+                        <div class="col-md-4">
+                            <label class="form-label">Quantité initiale</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="quantite"
+                                value="0"
+                                min="0"
+                            />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label"
+                                >Min (Seuil d'alerte)</label
+                            >
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="seuil_alerte"
+                                value="5"
+                                min="0"
+                            />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label"
+                                >Max (Stock maximum)</label
+                            >
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="stock_max"
+                                value="100"
+                                min="1"
+                            />
+                        </div>
+
+                        <!-- Sixième ligne : Site et Lieu -->
+                        <div class="col-md-6">
+                            <label class="form-label">Site</label>
+                            <select
+                                class="form-select"
+                                name="site"
+                                id="siteSelect"
+                            >
+                                <option value="">Sélectionner un site</option>
+                                {% for site in sites %}
+                                <option
+                                    value="{{ site.nom_site }}"
+                                    data-site-id="{{ site.id }}"
+                                >
+                                    {{ site.nom_site }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Lieu</label>
+                            <select
+                                class="form-select"
+                                name="lieu"
+                                id="lieuSelect"
+                            >
+                                <option value="">
+                                    Sélectionner d'abord un site
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Septième ligne : Emplacement et Fournisseur -->
+                        <div class="col-md-6">
+                            <label class="form-label">Emplacement</label>
+                            <select
+                                class="form-select"
+                                name="emplacement"
+                                id="emplacementSelect"
+                            >
+                                <option value="">
+                                    Sélectionner d'abord un lieu
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"
+                                >Fournisseur Standard</label
+                            >
+                            <select class="form-select" name="fournisseur">
+                                <option value="">
+                                    Sélectionner un fournisseur
+                                </option>
+                                {% for fournisseur in fournisseurs %}
+                                <option
+                                    value="{{ fournisseur.nom_fournisseur }}"
+                                >
+                                    {{ fournisseur.nom_fournisseur }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Huitième ligne : Prix et Catégorie -->
+                        <div class="col-md-4">
+                            <label class="form-label">Prix unitaire (€)</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="prix_unitaire"
+                                step="0.01"
+                                min="0"
+                                placeholder="0,00"
+                            />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Catégorie</label>
+                            <select class="form-select" name="categorie">
+                                <option value="">
+                                    Sélectionner une catégorie
+                                </option>
+                                <option value="Ferrure">Ferrure</option>
+                                <option value="VISSERIE">VISSERIE</option>
+                                <option value="AUTRE">AUTRE</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Secteur</label>
+                            <select class="form-select" name="secteur">
+                                <option value="">
+                                    Sélectionner un secteur
+                                </option>
+                                <option value="PVC">PVC</option>
+                                <option value="ALU">ALU</option>
+                                <option value="AUTRE">AUTRE</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal"
+                    >
+                        Annuler
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Créer le produit
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Modifier Produit -->
+<div class="modal fade" id="modifierProduitModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil text-warning"></i>
+                    Modifier Produit
+                </h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                ></button>
+            </div>
+            <form id="modifierProduitForm">
+                <div class="modal-body">
+                    <input
+                        type="hidden"
+                        name="reference_originale"
+                        id="referenceOriginale"
+                    />
+                    <div class="row g-3">
+                        <!-- Première ligne : Référence fournisseur -->
+                        <div class="col-md-6">
+                            <label class="form-label"
+                                >Référence fournisseur</label
+                            >
+                            <input
+                                type="text"
+                                class="form-control"
+                                name="reference_fournisseur"
+                                id="modifReferenceFournisseur"
+                                placeholder="Référence du fournisseur"
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"
+                                >Code QR (généré automatiquement)</label
+                            >
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="modifReference"
+                                readonly
+                                placeholder="Généré automatiquement"
+                            />
+                            <small class="text-muted"
+                                >Code à 10 chiffres généré lors de la
+                                création</small
+                            >
+                        </div>
+
+                        <!-- Deuxième ligne : Désignation -->
+                        <div class="col-12">
+                            <label class="form-label">Désignation *</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                name="designation"
+                                id="modifDesignation"
+                                placeholder="Nom/désignation du produit"
+                                required
+                            />
+                        </div>
+
+                        <!-- Troisième ligne : Description -->
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea
+                                class="form-control"
+                                name="description"
+                                id="modifDescription"
+                                rows="3"
+                                placeholder="Description détaillée du produit"
+                            ></textarea>
+                        </div>
+
+                        <!-- Quatrième ligne : Unités -->
+                        <div class="col-md-6">
+                            <label class="form-label">Unité de stockage</label>
+                            <select
+                                class="form-select"
+                                name="unite_stockage"
+                                id="modifUniteStockage"
+                            >
+                                <option value="">Sélectionner une unité</option>
+                                <option value="PCE">PCE (Pièce)</option>
+                                <option value="BOITE 5">BOITE 5</option>
+                                <option value="BOITE 10">BOITE 10</option>
+                                <option value="par 1">par 1</option>
+                                <option value="Boite 2000">Boite 2000</option>
+                                <option value="kg">kg (Kilogramme)</option>
+                                <option value="L">L (Litre)</option>
+                                <option value="m">m (Mètre)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Unité de commande</label>
+                            <select
+                                class="form-select"
+                                name="unite_commande"
+                                id="modifUniteCommande"
+                            >
+                                <option value="">Sélectionner une unité</option>
+                                <option value="BOITE 5">BOITE 5</option>
+                                <option value="BOITE 10">BOITE 10</option>
+                                <option value="par 1">par 1</option>
+                                <option value="Boite 2000">Boite 2000</option>
+                                <option value="PCE">PCE (Pièce)</option>
+                                <option value="kg">kg (Kilogramme)</option>
+                                <option value="L">L (Litre)</option>
+                                <option value="m">m (Mètre)</option>
+                            </select>
+                        </div>
+
+                        <!-- Cinquième ligne : Stocks -->
+                        <div class="col-md-4">
+                            <label class="form-label"
+                                >Min (Seuil d'alerte)</label
+                            >
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="seuil_alerte"
+                                id="modifSeuilAlerte"
+                                min="0"
+                            />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label"
+                                >Max (Stock maximum)</label
+                            >
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="stock_max"
+                                id="modifStockMax"
+                                min="1"
+                            />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Quantité actuelle</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="modifQuantite"
+                                name="quantite"
+                                readonly
+                            />
+                            <small class="text-muted"
+                                >Utilisez les mouvements de stock pour
+                                modifier</small
+                            >
+                        </div>
+
+                        <!-- Sixième ligne : Site et Lieu -->
+                        <div class="col-md-6">
+                            <label class="form-label">Site</label>
+                            <select
+                                class="form-select"
+                                name="site"
+                                id="modifSite"
+                            >
+                                <option value="">Sélectionner un site</option>
+                                {% for site in sites %}
+                                <option
+                                    value="{{ site.nom_site }}"
+                                    data-site-id="{{ site.id }}"
+                                >
+                                    {{ site.nom_site }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Lieu</label>
+                            <select
+                                class="form-select"
+                                name="lieu"
+                                id="modifLieu"
+                            >
+                                <option value="">
+                                    Sélectionner d'abord un site
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Septième ligne : Emplacement et Fournisseur -->
+                        <div class="col-md-6">
+                            <label class="form-label">Emplacement</label>
+                            <select
+                                class="form-select"
+                                name="emplacement"
+                                id="modifEmplacement"
+                            >
+                                <option value="">
+                                    Sélectionner d'abord un lieu
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"
+                                >Fournisseur Standard</label
+                            >
+                            <select
+                                class="form-select"
+                                name="fournisseur"
+                                id="modifFournisseur"
+                            >
+                                <option value="">
+                                    Sélectionner un fournisseur
+                                </option>
+                                {% for fournisseur in fournisseurs %}
+                                <option
+                                    value="{{ fournisseur.nom_fournisseur }}"
+                                >
+                                    {{ fournisseur.nom_fournisseur }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Huitième ligne : Prix et Catégorie -->
+                        <div class="col-md-4">
+                            <label class="form-label">Prix unitaire (€)</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="prix_unitaire"
+                                id="modifPrixUnitaire"
+                                step="0.01"
+                                min="0"
+                                placeholder="0,00"
+                            />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Catégorie</label>
+                            <select
+                                class="form-select"
+                                name="categorie"
+                                id="modifCategorie"
+                            >
+                                <option value="">
+                                    Sélectionner une catégorie
+                                </option>
+                                <option value="Ferrure">Ferrure</option>
+                                <option value="VISSERIE">VISSERIE</option>
+                                <option value="AUTRE">AUTRE</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Secteur</label>
+                            <select
+                                class="form-select"
+                                name="secteur"
+                                id="modifSecteur"
+                            >
+                                <option value="">
+                                    Sélectionner un secteur
+                                </option>
+                                <option value="PVC">PVC</option>
+                                <option value="ALU">ALU</option>
+                                <option value="AUTRE">AUTRE</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal"
+                    >
+                        Annuler
+                    </button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-check-circle"></i> Modifier le produit
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Import Produits -->
+<div class="modal fade" id="importProduitModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-earmark-excel text-success"></i>
+                    Importer des produits depuis Excel
+                </h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                ></button>
+            </div>
+            <div class="modal-body">
+                <!-- Instructions -->
+                <div class="alert alert-info">
+                    <h6>
+                        <i class="bi bi-info-circle"></i> Format du fichier
+                        Excel
+                    </h6>
+                    <p class="mb-2">
+                        Votre fichier Excel doit contenir les colonnes suivantes
+                        :
+                    </p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Colonnes obligatoires :</strong>
+                            <ul class="mb-0">
+                                <li><code>Désignation</code> (requis)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Colonnes optionnelles :</strong>
+                            <ul class="mb-0">
+                                <li><code>Référence fournisseur</code></li>
+                                <li><code>Unité de stockage</code></li>
+                                <li><code>Unité Commande</code></li>
+                                <li><code>Min</code> (seuil d'alerte)</li>
+                                <li><code>Max</code> (stock maximum)</li>
+                                <li><code>Prix</code></li>
+                                <li><code>Catégorie</code></li>
+                                <li><code>Secteur</code></li>
+                                <li><code>Quantité</code></li>
+                                <li><code>Site</code></li>
+                                <li><code>Lieu</code></li>
+                                <li><code>Emplacement</code></li>
+                                <li><code>Fournisseur Standard</code></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fonctionnalités automatiques -->
+                <div class="alert alert-success">
+                    <h6><i class="bi bi-magic"></i> Création automatique</h6>
+                    <p class="mb-0">
+                        Si un <strong>fournisseur</strong>,
+                        <strong>site</strong>, <strong>lieu</strong>,
+                        <strong>emplacement</strong>,
+                        <strong>unité de stockage</strong> ou
+                        <strong>unité de commande</strong>
+                        n'existe pas dans la base de données, il sera
+                        automatiquement créé lors de l'importation.
+                    </p>
+                </div>
+
+                <!-- Sélection de fichier -->
+                <form id="importForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="excelFile" class="form-label">
+                            <i class="bi bi-file-earmark-excel"></i>
+                            Sélectionner le fichier Excel
+                        </label>
+                        <input
+                            type="file"
+                            class="form-control"
+                            id="excelFile"
+                            name="file"
+                            accept=".xlsx,.xls"
+                            required
+                        />
+                        <div class="form-text">
+                            Formats acceptés : .xlsx, .xls (maximum 10 MB)
+                        </div>
+                    </div>
+
+                    <!-- Gestion des doublons -->
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="bi bi-arrow-repeat"></i>
+                            Gestion des produits existants
+                        </label>
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="radio"
+                                name="gestion_doublons"
+                                id="ignorer_doublons"
+                                value="ignorer"
+                                checked
+                            />
+                            <label
+                                class="form-check-label"
+                                for="ignorer_doublons"
+                            >
+                                <strong>Ignorer</strong> - Les produits
+                                existants ne seront pas modifiés
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="radio"
+                                name="gestion_doublons"
+                                id="mettre_a_jour_doublons"
+                                value="mettre_a_jour"
+                            />
+                            <label
+                                class="form-check-label"
+                                for="mettre_a_jour_doublons"
+                            >
+                                <strong>Mettre à jour</strong> - Les
+                                informations des produits existants seront mises
+                                à jour (sauf quantité)
+                            </label>
+                        </div>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i>
+                            L'unicité est basée sur la référence fournisseur et
+                            le fournisseur
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Zone de progression -->
+                <div id="importProgress" style="display: none">
+                    <div class="d-flex align-items-center">
+                        <div
+                            class="spinner-border spinner-border-sm text-success me-2"
+                            role="status"
+                        >
+                            <span class="visually-hidden"
+                                >Importation en cours...</span
+                            >
+                        </div>
+                        <span>Importation en cours, veuillez patienter...</span>
+                    </div>
+                </div>
+
+                <!-- Zone de résultats -->
+                <div id="importResults" style="display: none">
+                    <div class="alert" id="importAlert">
+                        <h6 id="importTitle"></h6>
+                        <pre
+                            id="importMessage"
+                            style="white-space: pre-wrap; font-family: inherit"
+                        ></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                >
+                    Fermer
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-success"
+                    id="startImportBtn"
+                    onclick="startImport()"
+                >
+                    <i class="bi bi-upload"></i> Démarrer l'importation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Recherche et filtres
+        const searchInput = document.getElementById("searchInput");
+        const fournisseurFilter = document.getElementById("fournisseurFilter");
+        const emplacementFilter = document.getElementById("emplacementFilter");
+        const statutFilter = document.getElementById("statutFilter");
+        const table = document.getElementById("produitsTable");
+        const rows = table.querySelectorAll("tbody tr");
+
+        function filterTable() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const fournisseurValue = fournisseurFilter.value;
+            const emplacementValue = emplacementFilter.value;
+            const statutValue = statutFilter.value;
+
+            rows.forEach((row) => {
+                const reference = row.cells[0].textContent.toLowerCase();
+                const nom = row.cells[1].textContent.toLowerCase();
+                const description = row.cells[2].textContent.toLowerCase();
+                const fournisseur = row.dataset.fournisseur;
+                const emplacement = row.dataset.emplacement;
+                const statut = row.dataset.statut;
+
+                const matchSearch =
+                    !searchTerm ||
+                    reference.includes(searchTerm) ||
+                    nom.includes(searchTerm) ||
+                    description.includes(searchTerm);
+
+                const matchFournisseur =
+                    !fournisseurValue || fournisseur === fournisseurValue;
+                const matchEmplacement =
+                    !emplacementValue || emplacement === emplacementValue;
+                const matchStatut = !statutValue || statut === statutValue;
+
+                if (
+                    matchSearch &&
+                    matchFournisseur &&
+                    matchEmplacement &&
+                    matchStatut
+                ) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
+            });
+        }
+
+        searchInput.addEventListener("input", filterTable);
+        fournisseurFilter.addEventListener("change", filterTable);
+        emplacementFilter.addEventListener("change", filterTable);
+        statutFilter.addEventListener("change", filterTable);
+
+        // Gestion des listes déroulantes en cascade (Site → Lieu → Emplacement)
+        const siteSelect = document.getElementById("siteSelect");
+        const lieuSelect = document.getElementById("lieuSelect");
+        const emplacementSelect = document.getElementById("emplacementSelect");
+
+        // Données des lieux et emplacements depuis le serveur
+        const lieuxData = {{ lieux | tojson }};
+        const emplacementsData = {{ emplacements | tojson }};
+
+        // Debug : Afficher les données des emplacements
+        console.log("Données des lieux:", lieuxData);
+        console.log("Données des emplacements:", emplacementsData);
+
+        // Gestion du changement de site
+        siteSelect.addEventListener("change", function() {
+            const siteId = this.selectedOptions[0]?.dataset.siteId;
+
+            // Réinitialiser les listes dépendantes
+            lieuSelect.innerHTML = '<option value="">Sélectionner un lieu</option>';
+            emplacementSelect.innerHTML = '<option value="">Sélectionner d\'abord un lieu</option>';
+
+            if (siteId) {
+                // Filtrer les lieux pour ce site
+                const lieuxDuSite = lieuxData.filter(lieu => lieu.site_id == siteId);
+
+                lieuxDuSite.forEach(lieu => {
+                    const option = document.createElement("option");
+                    option.value = lieu.nom_lieu;
+                    option.dataset.lieuId = lieu.id;
+                    option.textContent = lieu.nom_lieu;
+                    lieuSelect.appendChild(option);
+                });
+
+                lieuSelect.disabled = false;
+            } else {
+                lieuSelect.disabled = true;
+                emplacementSelect.disabled = true;
+            }
+        });
+
+        // Gestion du changement de lieu
+        lieuSelect.addEventListener("change", function() {
+            const lieuId = this.selectedOptions[0]?.dataset.lieuId;
+
+            // Réinitialiser la liste des emplacements
+            emplacementSelect.innerHTML = '<option value="">Sélectionner un emplacement</option>';
+
+            if (lieuId) {
+                // Filtrer les emplacements pour ce lieu
+                const emplacementsDuLieu = emplacementsData.filter(emp => emp.lieu_id == lieuId);
+
+                emplacementsDuLieu.forEach(emplacement => {
+                    const option = document.createElement("option");
+                    option.value = emplacement.nom_emplacement;
+                    option.textContent = emplacement.nom_emplacement;
+                    emplacementSelect.appendChild(option);
+                });
+
+                emplacementSelect.disabled = false;
+            } else {
+                emplacementSelect.disabled = true;
+            }
+        });
+
+        // Initialiser l'état des listes
+        lieuSelect.disabled = true;
+        emplacementSelect.disabled = true;
+
+        // Gestion des listes déroulantes en cascade pour le modal de modification
+        const modifSiteSelect = document.getElementById("modifSite");
+        const modifLieuSelect = document.getElementById("modifLieu");
+        const modifEmplacementSelect = document.getElementById("modifEmplacement");
+
+        // Gestion du changement de site (modification)
+        modifSiteSelect.addEventListener("change", function() {
+            const siteId = this.selectedOptions[0]?.dataset.siteId;
+
+            // Réinitialiser les listes dépendantes
+            modifLieuSelect.innerHTML = '<option value="">Sélectionner un lieu</option>';
+            modifEmplacementSelect.innerHTML = '<option value="">Sélectionner d\'abord un lieu</option>';
+
+            if (siteId) {
+                // Filtrer les lieux pour ce site
+                const lieuxDuSite = lieuxData.filter(lieu => lieu.site_id == siteId);
+
+                lieuxDuSite.forEach(lieu => {
+                    const option = document.createElement("option");
+                    option.value = lieu.nom_lieu;
+                    option.dataset.lieuId = lieu.id;
+                    option.textContent = lieu.nom_lieu;
+                    modifLieuSelect.appendChild(option);
+                });
+
+                modifLieuSelect.disabled = false;
+            } else {
+                modifLieuSelect.disabled = true;
+                modifEmplacementSelect.disabled = true;
+            }
+        });
+
+        // Gestion du changement de lieu (modification)
+        modifLieuSelect.addEventListener("change", function() {
+            const lieuId = this.selectedOptions[0]?.dataset.lieuId;
+
+            // Réinitialiser la liste des emplacements
+            modifEmplacementSelect.innerHTML = '<option value="">Sélectionner un emplacement</option>';
+
+            if (lieuId) {
+                // Filtrer les emplacements pour ce lieu
+                const emplacementsDuLieu = emplacementsData.filter(emp => emp.lieu_id == lieuId);
+
+                emplacementsDuLieu.forEach(emplacement => {
+                    const option = document.createElement("option");
+                    option.value = emplacement.nom_emplacement;
+                    option.textContent = emplacement.nom_emplacement;
+                    modifEmplacementSelect.appendChild(option);
+                });
+
+                modifEmplacementSelect.disabled = false;
+            } else {
+                modifEmplacementSelect.disabled = true;
+            }
+        });
+
+        // Formulaire nouveau produit
+        document
+            .getElementById("nouveauProduitForm")
+            .addEventListener("submit", function (e) {
+                e.preventDefault();
+
+                const formData = new FormData(this);
+                const data = Object.fromEntries(formData.entries());
+
+                // Validation
+                if (!data.designation) {
+                    alert("Veuillez remplir la désignation du produit");
+                    return;
+                }
+
+                // Appel API pour créer le produit
+                fetch("/api/produits", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(data),
+                })
+                    .then((response) => response.json())
+                    .then((result) => {
+                        if (result.success) {
+                            alert("Produit créé avec succès !");
+                            bootstrap.Modal.getInstance(
+                                document.getElementById("nouveauProduitModal")
+                            ).hide();
+                            location.reload();
+                        } else {
+                            alert("Erreur: " + result.message);
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Erreur:", error);
+                        alert("Erreur lors de la création du produit");
+                    });
+            });
+
+        // Formulaire modifier produit
+        document
+            .getElementById("modifierProduitForm")
+            .addEventListener("submit", function (e) {
+                e.preventDefault();
+
+                const formData = new FormData(this);
+                const data = Object.fromEntries(formData.entries());
+
+                // Validation
+                if (!data.designation) {
+                    alert("Veuillez remplir la désignation du produit");
+                    return;
+                }
+
+                // Récupérer l'ID du produit depuis les données stockées
+                const produitId = window.currentProduitId;
+                if (!produitId) {
+                    alert("Erreur: ID du produit non trouvé");
+                    return;
+                }
+
+                // Appel API pour modifier le produit
+                fetch(`/api/produits/${produitId}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(data),
+                })
+                    .then((response) => response.json())
+                    .then((result) => {
+                        if (result.success) {
+                            alert("Produit modifié avec succès !");
+                            bootstrap.Modal.getInstance(
+                                document.getElementById("modifierProduitModal")
+                            ).hide();
+                            location.reload();
+                        } else {
+                            alert("Erreur: " + result.message);
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Erreur:", error);
+                        alert("Erreur lors de la modification du produit");
+                    });
+            });
+    });
+
+    function voirProduit(reference) {
+        // Rediriger vers la page de détail du produit
+        window.location.href = `/produit/${reference}`;
+    }
+
+    function modifierProduit(reference) {
+        // Récupérer les données du produit via API
+        fetch(`/api/produits/${reference}`)
+            .then((response) => response.json())
+            .then((result) => {
+                if (result.success) {
+                    const produit = result.produit;
+
+                    // Stocker l'ID du produit pour la modification
+                    window.currentProduitId = produit.id;
+
+                    // Remplir le formulaire de modification
+                    document.getElementById("referenceOriginale").value =
+                        reference;
+                    document.getElementById("modifReference").value =
+                        produit.reference;
+                    document.getElementById("modifReferenceFournisseur").value =
+                        produit.reference_fournisseur || "";
+                    document.getElementById("modifDesignation").value =
+                        produit.designation ||
+                        produit.nom ||
+                        produit.produits ||
+                        "";
+                    document.getElementById("modifDescription").value =
+                        produit.description || "";
+
+                    // Extraire la description si elle est dans le champ produits
+                    if (produit.produits && produit.produits.includes(" - ")) {
+                        const parts = produit.produits.split(" - ");
+                        document.getElementById("modifDesignation").value =
+                            parts[0];
+                        document.getElementById("modifDescription").value =
+                            parts.slice(1).join(" - ");
+                    }
+
+                    document.getElementById("modifUniteStockage").value =
+                        produit.unite_stockage || "";
+                    document.getElementById("modifUniteCommande").value =
+                        produit.unite_commande || "";
+                    document.getElementById("modifSeuilAlerte").value =
+                        produit.stock_min || produit.seuil_alerte || 0;
+                    document.getElementById("modifStockMax").value =
+                        produit.stock_max || 100;
+                    document.getElementById("modifQuantite").value =
+                        produit.quantite || 0;
+                    // Gestion des listes déroulantes en cascade pour la modification
+                    const siteValue = produit.site || "";
+                    const lieuValue = produit.lieu || "";
+                    const emplacementValue = produit.emplacement || "";
+
+                    // Réinitialiser les listes
+                    const modifSiteSelect = document.getElementById("modifSite");
+                    const modifLieuSelect = document.getElementById("modifLieu");
+                    const modifEmplacementSelect = document.getElementById("modifEmplacement");
+
+                    // Sélectionner le site
+                    modifSiteSelect.value = siteValue;
+
+                    // Si un site est sélectionné, charger les lieux
+                    if (siteValue) {
+                        const siteOption = modifSiteSelect.querySelector(`option[value="${siteValue}"]`);
+                        const siteId = siteOption?.dataset.siteId;
+
+                        if (siteId) {
+                            // Charger les lieux pour ce site
+                            modifLieuSelect.innerHTML = '<option value="">Sélectionner un lieu</option>';
+                            const lieuxDuSite = {{ lieux | tojson }}.filter(lieu => lieu.site_id == siteId);
+
+                            lieuxDuSite.forEach(lieu => {
+                                const option = document.createElement("option");
+                                option.value = lieu.nom_lieu;
+                                option.dataset.lieuId = lieu.id;
+                                option.textContent = lieu.nom_lieu;
+                                modifLieuSelect.appendChild(option);
+                            });
+
+                            modifLieuSelect.disabled = false;
+                            modifLieuSelect.value = lieuValue;
+
+                            // Si un lieu est sélectionné, charger les emplacements
+                            if (lieuValue) {
+                                const lieuOption = modifLieuSelect.querySelector(`option[value="${lieuValue}"]`);
+                                const lieuId = lieuOption?.dataset.lieuId;
+
+                                if (lieuId) {
+                                    // Charger les emplacements pour ce lieu
+                                    modifEmplacementSelect.innerHTML = '<option value="">Sélectionner un emplacement</option>';
+                                    const emplacementsDuLieu = {{ emplacements | tojson }}.filter(emp => emp.lieu_id == lieuId);
+
+                                    emplacementsDuLieu.forEach(emplacement => {
+                                        const option = document.createElement("option");
+                                        option.value = emplacement.nom_emplacement;
+                                        option.textContent = emplacement.nom_emplacement;
+                                        modifEmplacementSelect.appendChild(option);
+                                    });
+
+                                    modifEmplacementSelect.disabled = false;
+                                    modifEmplacementSelect.value = emplacementValue;
+                                }
+                            }
+                        }
+                    }
+
+                    document.getElementById("modifFournisseur").value =
+                        produit.fournisseur || "";
+                    document.getElementById("modifPrixUnitaire").value =
+                        produit.prix_unitaire || "";
+                    document.getElementById("modifCategorie").value =
+                        produit.categorie || "";
+                    document.getElementById("modifSecteur").value =
+                        produit.secteur || "";
+
+                    // Afficher le modal
+                    new bootstrap.Modal(
+                        document.getElementById("modifierProduitModal")
+                    ).show();
+                } else {
+                    alert("Erreur: " + result.message);
+                }
+            })
+            .catch((error) => {
+                console.error("Erreur:", error);
+                alert("Erreur lors de la récupération des données du produit");
+            });
+    }
+
+    function supprimerProduit(reference) {
+        if (
+            confirm(
+                `Êtes-vous sûr de vouloir supprimer le produit ${reference} ?\n\nCette action est irréversible.`
+            )
+        ) {
+            // Récupérer l'ID depuis le tableau
+            const row = document.querySelector(
+                `tr[data-reference="${reference}"]`
+            );
+            const produitId = row ? row.dataset.id : null;
+
+            if (!produitId) {
+                alert("Erreur: ID du produit non trouvé");
+                return;
+            }
+
+            // Appel API pour supprimer le produit
+            fetch(`/api/produits/${produitId}`, {
+                method: "DELETE",
+            })
+                .then((response) => response.json())
+                .then((result) => {
+                    if (result.success) {
+                        alert("Produit supprimé avec succès !");
+                        location.reload();
+                    } else {
+                        alert("Erreur: " + result.message);
+                    }
+                })
+                .catch((error) => {
+                    console.error("Erreur:", error);
+                    alert("Erreur lors de la suppression du produit");
+                });
+        }
+    }
+
+    // Fonction d'importation Excel
+    function startImport() {
+        const fileInput = document.getElementById('excelFile');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert('Veuillez sélectionner un fichier Excel');
+            return;
+        }
+
+        // Vérifier la taille du fichier (10 MB max)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('Le fichier est trop volumineux. Taille maximum : 10 MB');
+            return;
+        }
+
+        // Afficher la progression
+        document.getElementById('importProgress').style.display = 'block';
+        document.getElementById('importResults').style.display = 'none';
+        document.getElementById('startImportBtn').disabled = true;
+
+        // Récupérer l'option de gestion des doublons
+        const gestionDoublons = document.querySelector('input[name="gestion_doublons"]:checked').value;
+
+        // Préparer les données
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('gestion_doublons', gestionDoublons);
+
+        // Envoyer le fichier
+        fetch('/api/import-produits', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(result => {
+            // Masquer la progression
+            document.getElementById('importProgress').style.display = 'none';
+            document.getElementById('startImportBtn').disabled = false;
+
+            // Afficher les résultats
+            const resultsDiv = document.getElementById('importResults');
+            const alertDiv = document.getElementById('importAlert');
+            const titleDiv = document.getElementById('importTitle');
+            const messageDiv = document.getElementById('importMessage');
+
+            if (result.success) {
+                alertDiv.className = 'alert alert-success';
+                titleDiv.innerHTML = '<i class="bi bi-check-circle"></i> Importation réussie';
+                messageDiv.textContent = result.message;
+
+                // Recharger la page après 3 secondes
+                setTimeout(() => {
+                    location.reload();
+                }, 3000);
+            } else {
+                alertDiv.className = 'alert alert-danger';
+                titleDiv.innerHTML = '<i class="bi bi-exclamation-circle"></i> Erreur d\'importation';
+                messageDiv.textContent = result.message;
+            }
+
+            resultsDiv.style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+
+            // Masquer la progression
+            document.getElementById('importProgress').style.display = 'none';
+            document.getElementById('startImportBtn').disabled = false;
+
+            // Afficher l'erreur
+            const resultsDiv = document.getElementById('importResults');
+            const alertDiv = document.getElementById('importAlert');
+            const titleDiv = document.getElementById('importTitle');
+            const messageDiv = document.getElementById('importMessage');
+
+            alertDiv.className = 'alert alert-danger';
+            titleDiv.innerHTML = '<i class="bi bi-exclamation-circle"></i> Erreur technique';
+            messageDiv.textContent = 'Une erreur technique s\'est produite lors de l\'importation.';
+
+            resultsDiv.style.display = 'block';
+        });
+    }
+
+    // Réinitialiser le modal à la fermeture
+    document.getElementById('importProduitModal').addEventListener('hidden.bs.modal', function () {
+        document.getElementById('importForm').reset();
+        document.getElementById('importProgress').style.display = 'none';
+        document.getElementById('importResults').style.display = 'none';
+        document.getElementById('startImportBtn').disabled = false;
+    });
+</script>
+
+<style>
+    .status-critique {
+        background-color: #f8d7da;
+    }
+    .status-faible {
+        background-color: #fff3cd;
+    }
+    .status-normal {
+        background-color: #d1e7dd;
+    }
+    .status-surstock {
+        background-color: #cff4fc;
+    }
+
+    .table-responsive {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}

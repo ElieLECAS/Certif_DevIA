@@ -1,0 +1,883 @@
+{% extends "base.html" %} {% block title %}{{ table.nom_table or table.id_table
+}} - Table Atelier{% endblock %} {% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .product-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        color: white;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+    .product-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    .product-reference {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        font-family: "Courier New", monospace;
+    }
+    .info-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .info-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+    .card-header-custom {
+        background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+        border-bottom: 2px solid #dee2e6;
+        padding: 1rem 1.5rem;
+    }
+    .card-header-custom h6 {
+        margin: 0;
+        font-weight: 600;
+        color: #495057;
+    }
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        padding: 1.5rem;
+    }
+    .info-item {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem;
+        border-left: 4px solid #007bff;
+        transition: all 0.3s ease;
+    }
+    .info-item:hover {
+        background: #e3f2fd;
+        border-left-color: #0056b3;
+    }
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .info-value {
+        color: #6c757d;
+        font-size: 1rem;
+        word-break: break-word;
+    }
+    .qr-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        padding: 2rem;
+        text-align: center;
+        color: white;
+    }
+    .qr-code-img {
+        background: white;
+        border-radius: 15px;
+        padding: 1rem;
+        display: inline-block;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    .back-btn {
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    .back-btn:hover {
+        border-color: #007bff;
+        background: #f8f9fa;
+        transform: translateY(-2px);
+    }
+
+    /* Styles pour les graphiques */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 1rem 0;
+    }
+
+    .stats-card {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        border-radius: 15px;
+        color: white;
+        padding: 1.5rem;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+
+    .stats-number {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .stats-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    /* Styles pour la liste des demandes */
+    .demande-item {
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .demande-item:hover {
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .badge-status {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+    }
+
+    .demandeur-info {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .date-demande {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+    /* Styles pour la section livraisons */
+    .border-success {
+        border-color: #28a745 !important;
+        border-width: 2px !important;
+    }
+
+    .livrer-btn {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        border-radius: 25px;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    .livrer-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+    }
+
+    .livrer-btn:disabled {
+        background: #6c757d;
+        transform: none;
+        box-shadow: none;
+        cursor: not-allowed;
+    }
+
+    .livrer-btn.loading {
+        position: relative;
+        color: transparent;
+    }
+
+    .livrer-btn.loading::after {
+        content: "";
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        top: 50%;
+        left: 50%;
+        margin-left: -8px;
+        margin-top: -8px;
+        border: 2px solid #ffffff;
+        border-radius: 50%;
+        border-top-color: transparent;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="container-fluid px-3">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10 col-xl-8">
+            <!-- En-tête avec retour -->
+            <div class="d-flex align-items-center mb-4">
+                <button onclick="history.back()" class="btn back-btn me-3">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+                <h4 class="mb-0 text-dark">Détail table d'atelier</h4>
+            </div>
+
+            <!-- En-tête table -->
+            <div class="product-header">
+                <div
+                    class="d-flex justify-content-between align-items-start flex-wrap"
+                >
+                    <div class="flex-grow-1">
+                        <div class="product-title">
+                            {{ table.nom_table or table.id_table }}
+                        </div>
+                        <div class="product-reference">
+                            🆔 {{ table.id_table }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Livraisons en attente -->
+            {% if demandes_pretes_livraison %}
+            <div class="info-card mb-4">
+                <div class="card-header-custom">
+                    <h6>
+                        <i class="bi bi-truck section-icon"></i>Livraisons en
+                        attente
+                        <span class="badge bg-warning text-dark ms-2"
+                            >{{ demandes_pretes_livraison|length }}</span
+                        >
+                    </h6>
+                </div>
+                <div style="padding: 1.5rem">
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Livraisons prêtes :</strong> Ces demandes ont
+                        été préparées et scannées. Vous pouvez maintenant les
+                        livrer.
+                    </div>
+
+                    {% for demande in demandes_pretes_livraison %}
+                    <div class="demande-item border-success">
+                        <div
+                            class="d-flex justify-content-between align-items-center"
+                        >
+                            <div class="flex-grow-1">
+                                <div
+                                    class="d-flex align-items-center gap-2 mb-2"
+                                >
+                                    <span class="demandeur-info"
+                                        >{{ demande.demandeur }}</span
+                                    >
+                                    <span class="badge bg-success"
+                                        >Prêt à livrer</span
+                                    >
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Demande:</strong> {{
+                                    demande.id_demande_base }}
+                                </div>
+                                <div class="mb-2">
+                                    <strong
+                                        >Produits ({{ demande.total_produits
+                                        }}):</strong
+                                    >
+                                    {% for produit in demande.produits %}
+                                    <div class="ms-3">
+                                        • {{ produit.produits }} - {{
+                                        produit.quantite_demandee }} {{
+                                        produit.unite_stockage or 'pce' }}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% if demande.commentaires %}
+                                <div class="mb-1">
+                                    <strong>Commentaires:</strong> {{
+                                    demande.commentaires }}
+                                </div>
+                                {% endif %}
+                                <div class="date-demande">
+                                    <i class="bi bi-calendar3"></i> {{
+                                    demande.date_demande.strftime('%d/%m/%Y
+                                    %H:%M') if demande.date_demande else 'Date
+                                    inconnue' }}
+                                </div>
+                            </div>
+                            <div class="ms-3">
+                                <button
+                                    class="btn btn-success btn-sm livrer-btn"
+                                    data-id-demande="{{ demande.id_demande_base }}"
+                                    data-demandeur="{{ demande.demandeur }}"
+                                >
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Valider la livraison
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Statistiques des demandes -->
+            <div class="row mb-4">
+                <div class="col-md-2">
+                    <div
+                        class="stats-card"
+                        style="
+                            background: linear-gradient(
+                                135deg,
+                                #667eea 0%,
+                                #764ba2 100%
+                            );
+                        "
+                    >
+                        <div class="stats-number">
+                            {{ stats_demandes.total }}
+                        </div>
+                        <div class="stats-label">Total demandes</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div
+                        class="stats-card"
+                        style="
+                            background: linear-gradient(
+                                135deg,
+                                #ffecd2 0%,
+                                #fcb69f 100%
+                            );
+                            color: #333;
+                        "
+                    >
+                        <div class="stats-number">
+                            {{ stats_demandes.en_attente }}
+                        </div>
+                        <div class="stats-label">En attente</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div
+                        class="stats-card"
+                        style="
+                            background: linear-gradient(
+                                135deg,
+                                #a8edea 0%,
+                                #fed6e3 100%
+                            );
+                            color: #333;
+                        "
+                    >
+                        <div class="stats-number">
+                            {{ stats_demandes.approuvees }}
+                        </div>
+                        <div class="stats-label">Approuvées</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div
+                        class="stats-card"
+                        style="
+                            background: linear-gradient(
+                                135deg,
+                                #d299c2 0%,
+                                #fef9d7 100%
+                            );
+                            color: #333;
+                        "
+                    >
+                        <div class="stats-number">
+                            {{ stats_demandes.en_cours }}
+                        </div>
+                        <div class="stats-label">En cours</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div
+                        class="stats-card"
+                        style="
+                            background: linear-gradient(
+                                135deg,
+                                #89f7fe 0%,
+                                #66a6ff 100%
+                            );
+                        "
+                    >
+                        <div class="stats-number">
+                            {{ stats_demandes.terminees }}
+                        </div>
+                        <div class="stats-label">Terminées</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div
+                        class="stats-card"
+                        style="
+                            background: linear-gradient(
+                                135deg,
+                                #ff9a9e 0%,
+                                #fecfef 100%
+                            );
+                            color: #333;
+                        "
+                    >
+                        <div class="stats-number">
+                            {{ stats_demandes.rejetees }}
+                        </div>
+                        <div class="stats-label">Rejetées</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graphiques -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <div class="card-header-custom">
+                            <h6>
+                                <i class="bi bi-pie-chart section-icon"></i
+                                >Répartition des demandes
+                            </h6>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chartRepartition"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <div class="card-header-custom">
+                            <h6>
+                                <i class="bi bi-graph-up section-icon"></i
+                                >Évolution mensuelle (6 mois)
+                            </h6>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chartEvolution"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top demandeurs -->
+            {% if top_demandeurs %}
+            <div class="info-card">
+                <div class="card-header-custom">
+                    <h6>
+                        <i class="bi bi-people section-icon"></i>Top 5
+                        demandeurs
+                    </h6>
+                </div>
+                <div class="info-grid">
+                    {% for demandeur, count in top_demandeurs %}
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-person text-primary"></i>{{
+                            demandeur }}
+                        </div>
+                        <div class="info-value">
+                            {{ count }} demande{{ 's' if count > 1 else '' }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Informations principales -->
+            <div class="info-card">
+                <div class="card-header-custom">
+                    <h6>
+                        <i class="bi bi-info-circle section-icon"></i
+                        >Informations générales
+                    </h6>
+                </div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-table text-primary"></i>Nom
+                        </div>
+                        <div class="info-value">{{ table.nom_table }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-diagram-3 text-info"></i>Type
+                            d'atelier
+                        </div>
+                        <div class="info-value">{{ table.type_atelier }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-geo-alt text-success"></i
+                            >Emplacement
+                        </div>
+                        <div class="info-value">
+                            {{ table.emplacement or '-' }}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-person text-warning"></i>Responsable
+                        </div>
+                        <div class="info-value">
+                            {{ table.responsable or '-' }}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-toggle-on text-secondary"></i>Statut
+                        </div>
+                        <div class="info-value">{{ table.statut }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-calendar-event text-info"></i>Date
+                            de création
+                        </div>
+                        <div class="info-value">{{ table.date_creation }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liste des demandes récentes -->
+            {% if demandes %}
+            <div class="info-card">
+                <div class="card-header-custom">
+                    <h6>
+                        <i class="bi bi-list-check section-icon"></i>Demandes
+                        récentes (20 dernières)
+                    </h6>
+                </div>
+                <div style="padding: 1.5rem">
+                    {% for demande in demandes %}
+                    <div class="demande-item">
+                        <div
+                            class="d-flex justify-content-between align-items-center"
+                        >
+                            <div class="flex-grow-1">
+                                <div
+                                    class="d-flex align-items-center gap-2 mb-2"
+                                >
+                                    <span class="demandeur-info"
+                                        >{{ demande.demandeur }}</span
+                                    >
+                                    <span
+                                        class="badge badge-status {% if demande.statut == 'En attente' %}bg-warning text-dark {% elif demande.statut == 'Approuvée' %}bg-primary {% elif demande.statut == 'En cours' %}bg-info {% elif demande.statut == 'Terminée' %}bg-success {% elif demande.statut == 'Rejetée' %}bg-danger {% else %}bg-secondary{% endif %}"
+                                    >
+                                        {{ demande.statut }}
+                                    </span>
+                                </div>
+                                <div class="mb-1">
+                                    <strong>Produit:</strong> {{
+                                    demande.reference_produit }} - {{
+                                    demande.produits or 'Produit inconnu' }}
+                                </div>
+                                <div class="mb-1">
+                                    <strong>Quantité:</strong> {{
+                                    demande.quantite_demandee }} {{
+                                    demande.unite_stockage or 'pce' }}
+                                </div>
+                                {% if demande.commentaires %}
+                                <div class="mb-1">
+                                    <strong>Commentaires:</strong> {{
+                                    demande.commentaires }}
+                                </div>
+                                {% endif %}
+                                <div class="date-demande">
+                                    <i class="bi bi-calendar3"></i> {{
+                                    demande.date_demande.strftime('%d/%m/%Y
+                                    %H:%M') if demande.date_demande else 'Date
+                                    inconnue' }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="info-card">
+                <div class="card-header-custom">
+                    <h6>
+                        <i class="bi bi-list-check section-icon"></i>Demandes
+                        matériel
+                    </h6>
+                </div>
+                <div style="padding: 1.5rem; text-align: center">
+                    <i class="bi bi-inbox display-1 text-muted"></i>
+                    <p class="text-muted mt-3">
+                        Aucune demande matériel associée à cette table
+                        d'atelier.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- QR Code -->
+            <div class="info-card">
+                <div class="card-header-custom">
+                    <h6><i class="bi bi-qr-code section-icon"></i>QR Code</h6>
+                </div>
+                <div class="qr-container">
+                    {% if qr_code %}
+                    <span class="qr-code-img">
+                        <img
+                            src="{{ qr_code }}"
+                            alt="QR Code Table"
+                            class="img-fluid mb-2"
+                            style="max-width: 180px"
+                        />
+                    </span>
+                    <div><small>ID : {{ table.id_table }}</small></div>
+                    {% else %}
+                    <span class="text-muted">QR code non disponible</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Traçabilité -->
+            <div class="info-card">
+                <div class="card-header-custom">
+                    <h6>
+                        <i class="bi bi-clock-history section-icon"></i
+                        >Traçabilité
+                    </h6>
+                </div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-calendar-plus text-success"></i>Date
+                            de création
+                        </div>
+                        <div class="info-value">{{ table.date_creation }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="bi bi-clock text-info"></i>Dernière mise à
+                            jour
+                        </div>
+                        <div class="info-value">
+                            {% if table.updated_at %}{{ table.updated_at }}{%
+                            else %}Non définie{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Graphique en camembert pour la répartition des demandes
+    const ctxRepartition = document.getElementById('chartRepartition').getContext('2d');
+    const chartRepartition = new Chart(ctxRepartition, {
+        type: 'doughnut',
+        data: {
+            labels: ['En attente', 'Approuvées', 'En cours', 'Terminées', 'Rejetées'],
+            datasets: [{
+                data: [
+                    {{ stats_demandes.en_attente }},
+                    {{ stats_demandes.approuvees }},
+                    {{ stats_demandes.en_cours }},
+                    {{ stats_demandes.terminees }},
+                    {{ stats_demandes.rejetees }}
+                ],
+                backgroundColor: [
+                    '#ffc107',
+                    '#0d6efd',
+                    '#17a2b8',
+                    '#198754',
+                    '#dc3545'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                }
+            }
+        }
+    });
+
+    // Graphique linéaire pour l'évolution mensuelle
+    const ctxEvolution = document.getElementById('chartEvolution').getContext('2d');
+    const chartEvolution = new Chart(ctxEvolution, {
+        type: 'line',
+        data: {
+            labels: {{ mois_labels | tojson }},
+            datasets: [{
+                label: 'Nombre de demandes',
+                data: {{ mois_values | tojson }},
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#667eea',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+
+    // Gestion des livraisons depuis la table d'atelier
+    document.addEventListener('DOMContentLoaded', function() {
+        const livrerButtons = document.querySelectorAll('.livrer-btn');
+
+        livrerButtons.forEach(button => {
+            button.addEventListener('click', async function() {
+                const idDemandeBase = this.dataset.idDemande;
+                const demandeur = this.dataset.demandeur;
+
+                // Confirmation
+                if (!confirm(`Confirmer la livraison de la demande ${idDemandeBase} pour ${demandeur} ?`)) {
+                    return;
+                }
+
+                // Désactiver le bouton et afficher le loading
+                this.disabled = true;
+                this.classList.add('loading');
+
+                try {
+                    // Créer les données du formulaire
+                    const formData = new FormData();
+                    formData.append('id_demande_base', idDemandeBase);
+
+                    const response = await fetch('/api/livrer-depuis-table', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        // Afficher un message de succès
+                        showToast('Succès', result.message, 'success');
+
+                        // Masquer la demande livrée
+                        const demandeItem = this.closest('.demande-item');
+                        demandeItem.style.transition = 'opacity 0.5s ease';
+                        demandeItem.style.opacity = '0';
+
+                        setTimeout(() => {
+                            demandeItem.remove();
+
+                            // Vérifier s'il reste des demandes
+                            const remainingDemandes = document.querySelectorAll('.livrer-btn').length - 1;
+                            if (remainingDemandes === 0) {
+                                // Masquer toute la section si plus de demandes
+                                const section = document.querySelector('.info-card');
+                                if (section && section.querySelector('.bi-truck')) {
+                                    section.style.transition = 'opacity 0.5s ease';
+                                    section.style.opacity = '0';
+                                    setTimeout(() => section.remove(), 500);
+                                }
+                            } else {
+                                // Mettre à jour le badge de compteur
+                                const badge = document.querySelector('.badge.bg-warning');
+                                if (badge) {
+                                    badge.textContent = remainingDemandes;
+                                }
+                            }
+                        }, 500);
+
+                    } else {
+                        showToast('Erreur', result.message, 'error');
+                        // Réactiver le bouton
+                        this.disabled = false;
+                        this.classList.remove('loading');
+                    }
+
+                } catch (error) {
+                    console.error('Erreur:', error);
+                    showToast('Erreur', 'Erreur de communication avec le serveur', 'error');
+                    // Réactiver le bouton
+                    this.disabled = false;
+                    this.classList.remove('loading');
+                }
+            });
+        });
+    });
+
+    // Fonction pour afficher les notifications toast
+    function showToast(title, message, type = 'info') {
+        // Créer l'élément toast
+        const toastContainer = document.getElementById('toast-container') || createToastContainer();
+
+        const toastId = 'toast-' + Date.now();
+        const bgClass = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-info';
+
+        const toastHTML = `
+            <div class="toast ${bgClass} text-white" id="${toastId}" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header ${bgClass} text-white border-0">
+                    <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                    <strong class="me-auto">${title}</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        `;
+
+        toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, {
+            autohide: true,
+            delay: type === 'error' ? 8000 : 5000
+        });
+
+        toast.show();
+
+        // Supprimer l'élément après fermeture
+        toastElement.addEventListener('hidden.bs.toast', function() {
+            this.remove();
+        });
+    }
+
+    function createToastContainer() {
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+        return container;
+    }
+</script>
+{% endblock %}

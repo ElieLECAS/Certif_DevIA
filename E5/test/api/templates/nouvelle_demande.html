@@ -1,0 +1,185 @@
+{% extends "base.html" %} {% block title %}Nouvelle Demande - GMAO Mobile{%
+endblock %} {% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+        <h4 class="mb-4">
+            <i class="bi bi-clipboard-plus"></i> Nouvelle Demande
+        </h4>
+
+        <div class="card">
+            <div class="card-body">
+                <form id="demandeForm">
+                    <div class="mb-3">
+                        <label for="demandeur" class="form-label"
+                            >Demandeur</label
+                        >
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="demandeur"
+                            required
+                        />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="motif" class="form-label"
+                            >Motif de la demande</label
+                        >
+                        <textarea
+                            class="form-control"
+                            id="motif"
+                            rows="3"
+                            required
+                        ></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Produits demandés</label>
+                        <div id="produits-container">
+                            <div class="produit-item mb-2">
+                                <div class="input-group">
+                                    <input
+                                        type="text"
+                                        class="form-control produit-ref"
+                                        placeholder="Référence produit"
+                                    />
+                                    <input
+                                        type="number"
+                                        class="form-control produit-qty"
+                                        placeholder="Qté"
+                                        min="1"
+                                        value="1"
+                                    />
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-primary"
+                                        onclick="scanProduit(this)"
+                                    >
+                                        <i class="bi bi-qr-code-scan"></i>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-danger"
+                                        onclick="removeProduit(this)"
+                                    >
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            onclick="addProduit()"
+                        >
+                            <i class="bi bi-plus"></i> Ajouter un produit
+                        </button>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i> Créer la demande
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+    document
+        .getElementById("demandeForm")
+        .addEventListener("submit", function (e) {
+            e.preventDefault();
+
+            const produits = [];
+            document.querySelectorAll(".produit-item").forEach((item) => {
+                const ref = item.querySelector(".produit-ref").value.trim();
+                const qty = parseInt(item.querySelector(".produit-qty").value);
+
+                if (ref && qty > 0) {
+                    produits.push({ reference: ref, quantite: qty });
+                }
+            });
+
+            if (produits.length === 0) {
+                showNotification(
+                    "Veuillez ajouter au moins un produit",
+                    "warning"
+                );
+                return;
+            }
+
+            const data = {
+                demandeur: document.getElementById("demandeur").value,
+                motif: document.getElementById("motif").value,
+                produits: produits,
+            };
+
+            makeRequest("/nouvelle-demande", "POST", data)
+                .then((response) => {
+                    if (response.success) {
+                        showNotification(
+                            "Demande créée avec succès",
+                            "success"
+                        );
+                        window.location.href = "/demandes";
+                    } else {
+                        showNotification(
+                            response.message || "Erreur lors de la création",
+                            "danger"
+                        );
+                    }
+                })
+                .catch((error) => {
+                    showNotification("Erreur lors de la création", "danger");
+                });
+        });
+
+    function addProduit() {
+        const container = document.getElementById("produits-container");
+        const newItem = document.createElement("div");
+        newItem.className = "produit-item mb-2";
+        newItem.innerHTML = `
+        <div class="input-group">
+            <input type="text" class="form-control produit-ref" placeholder="Référence produit">
+            <input type="number" class="form-control produit-qty" placeholder="Qté" min="1" value="1">
+            <button type="button" class="btn btn-outline-primary" onclick="scanProduit(this)">
+                <i class="bi bi-qr-code-scan"></i>
+            </button>
+            <button type="button" class="btn btn-outline-danger" onclick="removeProduit(this)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    `;
+        container.appendChild(newItem);
+    }
+
+    function removeProduit(button) {
+        const container = document.getElementById("produits-container");
+        if (container.children.length > 1) {
+            button.closest(".produit-item").remove();
+        } else {
+            showNotification("Au moins un produit est requis", "warning");
+        }
+    }
+
+    function scanProduit(button) {
+        // Stocker la référence du champ à remplir
+        sessionStorage.setItem(
+            "targetField",
+            button.closest(".produit-item").querySelector(".produit-ref").id ||
+                "temp"
+        );
+        window.location.href = "/scanner";
+    }
+
+    // Pré-remplir si un produit est passé en paramètre
+    const urlParams = new URLSearchParams(window.location.search);
+    const produit = urlParams.get("produit");
+    if (produit) {
+        document.querySelector(".produit-ref").value = produit;
+    }
+</script>
+{% endblock %}

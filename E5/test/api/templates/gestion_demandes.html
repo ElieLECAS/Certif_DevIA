@@ -1,0 +1,1616 @@
+{% extends "base.html" %} {% block title %}Gestion des demandes - GMAO{%
+endblock %} {% block extra_css %}
+<style>
+    .container-fluid {
+        padding: 15px;
+        max-width: 100%;
+    }
+
+    .header-section {
+        background: linear-gradient(135deg, #0d6efd, #0056b3);
+        color: white;
+        padding: 20px;
+        margin: -15px -15px 20px -15px;
+        border-radius: 0 0 15px 15px;
+    }
+
+    .header-section h4 {
+        margin: 0;
+        font-weight: 600;
+        color: white;
+    }
+
+    .header-section h4 i {
+        color: white;
+    }
+
+    .stats-row {
+        margin-bottom: 20px;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border: none;
+    }
+
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin: 0;
+    }
+
+    .stat-en-attente .stat-number {
+        color: #ffc107;
+    }
+    .stat-approuvee .stat-number {
+        color: #198754;
+    }
+    .stat-en-cours .stat-number {
+        color: #0d6efd;
+    }
+    .stat-rejetee .stat-number {
+        color: #dc3545;
+    }
+    .stat-terminee .stat-number {
+        color: #198754;
+    }
+
+    /* Filtres par badges */
+    .filtre-badge {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 20px;
+        padding: 8px 16px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #6c757d;
+    }
+
+    .filtre-badge:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .filtre-badge.active {
+        color: white;
+        border-color: transparent;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .filtre-tous.active {
+        background: #6f42c1;
+    }
+
+    .filtre-en-attente.active {
+        background: #ffc107;
+        color: #856404 !important;
+    }
+
+    .filtre-approuvee.active {
+        background: #0dcaf0;
+        color: #0c5460 !important;
+    }
+
+    .filtre-en-cours.active {
+        background: #0d6efd;
+    }
+
+    .filtre-terminee.active {
+        background: #198754;
+    }
+
+    .filtre-rejetee.active {
+        background: #dc3545;
+    }
+
+    .demande-accordion {
+        margin-bottom: 15px;
+        border: none;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .demande-header {
+        background: white;
+        border: none;
+        padding: 0;
+    }
+
+    .demande-header-content {
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .demande-header-content:hover {
+        background-color: #f8f9fa;
+    }
+
+    .demande-info {
+        flex: 1;
+    }
+
+    .demande-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #212529;
+        margin: 0 0 5px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .demande-meta {
+        display: flex;
+        gap: 20px;
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 8px;
+    }
+
+    .demande-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-en-attente {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+
+    .status-approuvee {
+        background-color: #d1edff;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+
+    .status-rejetee,
+    .status-rejetée {
+        background-color: #dc3545;
+        color: white;
+        border: 1px solid #dc3545;
+    }
+
+    .status-en-cours {
+        background-color: #cce5ff;
+        color: #004085;
+        border: 1px solid #b3d7ff;
+    }
+
+    .status-terminee,
+    .status-terminée {
+        background-color: #198754;
+        color: white;
+        border: 1px solid #198754;
+    }
+
+    .urgence-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .urgence-normal {
+        background-color: #e8f5e8;
+        color: #2d5016;
+    }
+
+    .urgence-haute {
+        background-color: #ffe6e6;
+        color: #8b0000;
+    }
+
+    .collapse-icon {
+        transition: transform 0.3s;
+        color: #6c757d;
+    }
+
+    .collapsed .collapse-icon {
+        transform: rotate(-90deg);
+    }
+
+    .demande-body {
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .demande-content {
+        padding: 20px;
+    }
+
+    .section-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .produits-table {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 15px;
+    }
+
+    .produits-table table {
+        margin: 0;
+        font-size: 0.9rem;
+    }
+
+    .produits-table th {
+        background: #e9ecef;
+        font-weight: 600;
+        font-size: 0.8rem;
+        padding: 12px 8px;
+        border: none;
+    }
+
+    .produits-table td {
+        padding: 12px 8px;
+        border: none;
+        border-bottom: 1px solid #f1f3f4;
+        vertical-align: middle;
+    }
+
+    .produits-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .verification-section {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .stock-item-wrapper {
+        padding: 15px 0;
+        border-bottom: 1px solid #f1f3f4;
+    }
+
+    .stock-item-wrapper:last-child {
+        border-bottom: none;
+    }
+
+    .stock-item-header {
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .stock-comparison {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        align-items: center;
+    }
+
+    .stock-current,
+    .stock-after {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .stock-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    @media (max-width: 768px) {
+        .stock-comparison {
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+    }
+
+    .stock-status {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .stock-normal {
+        background: #e8f5e8;
+        color: #2d5016;
+    }
+    .stock-faible {
+        background: #fff3cd;
+        color: #856404;
+    }
+    .stock-critique {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    /* Jauge de progression style Uber Eats */
+    .progress-tracker {
+        margin: 20px 0;
+        padding: 20px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .progress-steps {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        margin: 20px 0;
+    }
+
+    .progress-line {
+        position: absolute;
+        top: 20px;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: #e9ecef;
+        border-radius: 2px;
+        z-index: 1;
+    }
+
+    .progress-line-active {
+        position: absolute;
+        top: 20px;
+        left: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #28a745, #20c997);
+        border-radius: 2px;
+        z-index: 2;
+        transition: width 0.8s ease;
+    }
+
+    .progress-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        z-index: 3;
+        position: relative;
+        flex: 1;
+        max-width: 120px;
+    }
+
+    .step-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        margin-bottom: 8px;
+        border: 3px solid #e9ecef;
+        background: white;
+        color: #6c757d;
+    }
+
+    .step-circle.active {
+        background: #28a745;
+        border-color: #28a745;
+        color: white;
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+
+    .step-circle.completed {
+        background: #28a745;
+        border-color: #28a745;
+        color: white;
+    }
+
+    .step-circle.rejected {
+        background: #dc3545;
+        border-color: #dc3545;
+        color: white;
+    }
+
+    .step-label {
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-align: center;
+        color: #6c757d;
+        line-height: 1.2;
+    }
+
+    .step-label.active {
+        color: #28a745;
+        font-weight: 600;
+    }
+
+    .step-label.completed {
+        color: #28a745;
+    }
+
+    .step-label.rejected {
+        color: #dc3545;
+    }
+
+    .step-time {
+        font-size: 0.75rem;
+        color: #adb5bd;
+        margin-top: 2px;
+    }
+
+    /* Animation pour le bonhomme qui bouge */
+    .delivery-person {
+        position: absolute;
+        top: 8px;
+        width: 24px;
+        height: 24px;
+        background: #ffc107;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        z-index: 4;
+        transition: left 0.8s ease;
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
+    }
+
+    @media (max-width: 768px) {
+        .progress-steps {
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .progress-step {
+            max-width: 80px;
+        }
+
+        .step-circle {
+            width: 35px;
+            height: 35px;
+            font-size: 1rem;
+        }
+
+        .step-label {
+            font-size: 0.75rem;
+        }
+    }
+
+    .actions-section {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-approve {
+        background: #198754;
+        color: white;
+    }
+
+    .btn-approve:hover {
+        background: #157347;
+    }
+
+    .btn-reject {
+        background: #dc3545;
+        color: white;
+    }
+
+    .btn-reject:hover {
+        background: #bb2d3b;
+    }
+
+    .btn-process {
+        background: #0d6efd;
+        color: white;
+    }
+
+    .btn-process:hover {
+        background: #0b5ed7;
+    }
+
+    .btn-details {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-details:hover {
+        background: #5c636a;
+    }
+
+    .btn-deliver {
+        background: #20c997;
+        color: white;
+    }
+
+    .btn-deliver:hover {
+        background: #1aa085;
+    }
+
+    .no-demandes {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+
+    .no-demandes i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+
+    /* Alertes */
+    .alertes-section {
+        margin-bottom: 20px;
+    }
+
+    .alerte-card {
+        border: none;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .alerte-header {
+        padding: 12px 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .alerte-danger .alerte-header {
+        background: linear-gradient(135deg, #dc3545, #c82333);
+        color: white;
+    }
+
+    .alerte-warning .alerte-header {
+        background: linear-gradient(135deg, #ffc107, #e0a800);
+        color: #212529;
+    }
+
+    .alerte-info .alerte-header {
+        background: linear-gradient(135deg, #17a2b8, #138496);
+        color: white;
+    }
+
+    .alerte-success .alerte-header {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+    }
+
+    .alerte-header:hover {
+        opacity: 0.9;
+    }
+
+    .alerte-icon {
+        font-size: 1.2rem;
+    }
+
+    .alerte-content {
+        background: white;
+        padding: 15px;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .alerte-details {
+        margin-top: 10px;
+    }
+
+    .detail-item {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+        border-left: 3px solid #dee2e6;
+    }
+
+    .detail-item.critique {
+        border-left-color: #dc3545;
+        background: #fff5f5;
+    }
+
+    .detail-item.warning {
+        border-left-color: #ffc107;
+        background: #fffdf0;
+    }
+
+    .detail-item.info {
+        border-left-color: #17a2b8;
+        background: #f0fdff;
+    }
+
+    .detail-reference {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .detail-stock {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 4px;
+    }
+
+    .alerte-toggle {
+        margin-left: auto;
+        transition: transform 0.3s;
+    }
+
+    .alerte-collapsed .alerte-toggle {
+        transform: rotate(-90deg);
+    }
+
+    @media (max-width: 768px) {
+        .demande-meta {
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .actions-section {
+            justify-content: center;
+        }
+
+        .produits-table {
+            font-size: 0.8rem;
+        }
+
+        .produits-table th,
+        .produits-table td {
+            padding: 8px 4px;
+        }
+
+        .header-section .d-flex {
+            flex-direction: column;
+            gap: 10px;
+            align-items: stretch !important;
+        }
+
+        .header-section .d-flex > div {
+            justify-content: center;
+        }
+
+        .filtre-badge {
+            font-size: 0.8rem;
+            padding: 6px 12px;
+        }
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="header-section">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4>
+                <i class="bi bi-clipboard-check"></i>
+                {% if is_user_role %} Mes demandes {% else %} Gestion des
+                demandes {% endif %}
+            </h4>
+            <div>
+                <a
+                    href="{{ url_for('demande_materiel') }}"
+                    class="btn btn-primary btn-sm"
+                    style="
+                        background: linear-gradient(135deg, #0d6efd, #0056b3);
+                        border: none;
+                        color: white;
+                    "
+                >
+                    <i class="bi bi-plus" style="color: white"></i> Nouvelle
+                    demande
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    {% if not is_user_role %}
+    <div class="row stats-row g-3">
+        <div class="col-6 col-md-2">
+            <div class="stat-card stat-en-attente">
+                <div class="stat-number">{{ stats.en_attente }}</div>
+                <p class="stat-label">En attente</p>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="stat-card stat-approuvee">
+                <div class="stat-number">{{ stats.approuvee }}</div>
+                <p class="stat-label">Approuvées</p>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="stat-card stat-en-cours">
+                <div class="stat-number">{{ stats.en_cours }}</div>
+                <p class="stat-label">En cours</p>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="stat-card stat-rejetee">
+                <div class="stat-number">{{ stats.rejetee }}</div>
+                <p class="stat-label">Rejetées</p>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="stat-card stat-terminee">
+                <div class="stat-number">{{ stats.terminee }}</div>
+                <p class="stat-label">Terminées</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filtres par badges -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="fw-medium text-muted me-2"
+                    >Filtrer par statut :</span
+                >
+                <button
+                    class="filtre-badge filtre-tous {{ 'active' if statut_filtre == 'tous' else '' }}"
+                    data-statut="tous"
+                >
+                    <i class="bi bi-list-ul"></i> Tous ({{ stats.en_attente +
+                    stats.approuvee + stats.en_cours + stats.terminee +
+                    stats.rejetee }})
+                </button>
+                <button
+                    class="filtre-badge filtre-en-attente {{ 'active' if statut_filtre == 'En attente' else '' }}"
+                    data-statut="En attente"
+                >
+                    <i class="bi bi-exclamation-triangle"></i> En attente ({{
+                    stats.en_attente }})
+                </button>
+                <button
+                    class="filtre-badge filtre-approuvee {{ 'active' if statut_filtre == 'Approuvée' else '' }}"
+                    data-statut="Approuvée"
+                >
+                    <i class="bi bi-check-circle"></i> Approuvées ({{
+                    stats.approuvee }})
+                </button>
+                <button
+                    class="filtre-badge filtre-en-cours {{ 'active' if statut_filtre == 'En cours' else '' }}"
+                    data-statut="En cours"
+                >
+                    <i class="bi bi-arrow-clockwise"></i> En cours ({{
+                    stats.en_cours }})
+                </button>
+                <button
+                    class="filtre-badge filtre-terminee {{ 'active' if statut_filtre == 'Terminée' else '' }}"
+                    data-statut="Terminée"
+                >
+                    <i class="bi bi-check-all"></i> Terminées ({{ stats.terminee
+                    }})
+                </button>
+                <button
+                    class="filtre-badge filtre-rejetee {{ 'active' if statut_filtre == 'Rejetée' else '' }}"
+                    data-statut="Rejetée"
+                >
+                    <i class="bi bi-x-circle"></i> Rejetées ({{ stats.rejetee
+                    }})
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Alertes -->
+    {% if alertes and not is_user_role %}
+    <div class="alertes-section">
+        {% for alerte in alertes %}
+        <div class="alerte-card alerte-{{ alerte.type }}">
+            <div
+                class="alerte-header alerte-collapsed"
+                data-bs-toggle="collapse"
+                data-bs-target="#alerte-{{ loop.index }}"
+                aria-expanded="false"
+            >
+                <i class="alerte-icon {{ alerte.icon }}"></i>
+                <span class="alerte-titre">{{ alerte.titre }}</span>
+                <span class="alerte-message">- {{ alerte.message }}</span>
+                <i class="bi bi-chevron-down alerte-toggle"></i>
+            </div>
+            <div id="alerte-{{ loop.index }}" class="collapse">
+                <div class="alerte-content">
+                    <div class="alerte-details">
+                        {% if alerte.type in ['danger', 'warning', 'info'] %} {%
+                        for detail in alerte.details %}
+                        <div
+                            class="detail-item {{ 'critique' if alerte.type == 'danger' else ('warning' if alerte.type == 'warning' else 'info') }}"
+                        >
+                            <div class="detail-reference">
+                                {{ detail.designation or detail.reference }}
+                                <span class="text-muted"
+                                    >({{ detail.reference }})</span
+                                >
+                            </div>
+                            <div class="detail-stock">
+                                Stock: {{ detail.quantite_stock }} | Demandé: {{
+                                detail.quantite_demandee }} | Demande: {{
+                                detail.demande_id }}
+                            </div>
+                        </div>
+                        {% endfor %} {% else %} {% for detail in alerte.details
+                        %}
+                        <div class="detail-item info">
+                            <div class="detail-reference">
+                                Demande {{ detail.demande_id }} {% if
+                                detail.demandeur %}
+                                <span class="text-muted"
+                                    >par {{ detail.demandeur }}</span
+                                >
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %} {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Liste des demandes -->
+    {% if demandes %} {% for demande in demandes %}
+    <div class="accordion demande-accordion">
+        <div class="accordion-item">
+            <div class="demande-header">
+                <div
+                    class="demande-header-content"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#demande-{{ loop.index }}"
+                    aria-expanded="false"
+                >
+                    <div class="demande-info">
+                        <div class="demande-title">
+                            <i class="bi bi-hourglass-split text-warning"></i>
+                            Demande {{ demande.id_demande }} - {{
+                            demande.demandeur }}
+                            <span
+                                class="status-badge status-{{ demande.statut|lower|replace(' ', '-') }}"
+                            >
+                                {{ demande.statut }}
+                            </span>
+                        </div>
+                        <div class="demande-meta">
+                            <div class="demande-meta-item">
+                                <i class="bi bi-calendar3"></i>
+                                <span>{{ demande.date_demande }}</span>
+                            </div>
+                            <div class="demande-meta-item">
+                                <i class="bi bi-person"></i>
+                                <span>{{ demande.demandeur }}</span>
+                            </div>
+                            <div class="demande-meta-item">
+                                <i class="bi bi-geo-alt"></i>
+                                <span>{{ demande.table_atelier }}</span>
+                            </div>
+                            <div class="demande-meta-item">
+                                <span
+                                    class="urgence-badge urgence-{{ demande.urgence|lower }}"
+                                >
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    {{ demande.urgence }}
+                                </span>
+                            </div>
+                        </div>
+                        {% if demande.commentaires %}
+                        <div class="demande-meta">
+                            <div class="demande-meta-item">
+                                <i class="bi bi-chat-text"></i>
+                                <span
+                                    >{{ demande.commentaires[:100] }}{% if
+                                    demande.commentaires|length > 100 %}...{%
+                                    endif %}</span
+                                >
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <i class="bi bi-chevron-down collapse-icon"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                id="demande-{{ loop.index }}"
+                class="accordion-collapse collapse"
+            >
+                <div class="demande-body">
+                    <div class="demande-content">
+                        <!-- Section Produits demandés -->
+                        <div class="section-title">
+                            <i class="bi bi-box-seam"></i>
+                            Produits demandés :
+                        </div>
+
+                        <div class="produits-table">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Référence</th>
+                                        <th>Produit</th>
+                                        <th>Quantité</th>
+                                        <th>Emplacement</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for produit in demande.produits %}
+                                    <tr>
+                                        <td>{{ produit.reference }}</td>
+                                        <td>
+                                            {{ produit.designation or 'Non
+                                            spécifié' }}
+                                        </td>
+                                        <td>
+                                            {{ produit.quantite }} {{
+                                            produit.unite or 'pce' }}
+                                        </td>
+                                        <td>
+                                            {{ produit.emplacement or 'Non
+                                            spécifié' }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Section Vérification de disponibilité -->
+                        {% if not is_user_role %}
+                        <div class="section-title">
+                            <i class="bi bi-check-circle"></i>
+                            Vérification de disponibilité :
+                        </div>
+
+                        <div class="verification-section">
+                            {% for produit in demande.produits %}
+                            <div class="stock-item-wrapper">
+                                <div class="stock-item-header">
+                                    <strong
+                                        >{{ produit.designation or
+                                        produit.reference }}</strong
+                                    >
+                                    <span class="text-muted"
+                                        >(Réf: {{ produit.reference }})</span
+                                    >
+                                </div>
+
+                                <div class="stock-comparison">
+                                    <!-- État actuel -->
+                                    <div class="stock-current">
+                                        <span class="stock-label"
+                                            >État actuel:</span
+                                        >
+                                        {% set stock_info = produit.stock_info
+                                        %} {% if stock_info.statut_stock ==
+                                        'critique' %}
+                                        <span
+                                            class="stock-status stock-critique"
+                                        >
+                                            <i
+                                                class="bi bi-exclamation-triangle"
+                                            ></i>
+                                            Stock critique ({{
+                                            stock_info.quantite_stock }})
+                                        </span>
+                                        {% elif stock_info.statut_stock ==
+                                        'faible' %}
+                                        <span class="stock-status stock-faible">
+                                            <i
+                                                class="bi bi-exclamation-circle"
+                                            ></i>
+                                            Stock faible ({{
+                                            stock_info.quantite_stock }})
+                                        </span>
+                                        {% elif stock_info.statut_stock ==
+                                        'surstock' %}
+                                        <span class="stock-status stock-normal">
+                                            <i
+                                                class="bi bi-arrow-up-circle"
+                                            ></i>
+                                            Surstock ({{
+                                            stock_info.quantite_stock }})
+                                        </span>
+                                        {% else %}
+                                        <span class="stock-status stock-normal">
+                                            <i class="bi bi-check-circle"></i>
+                                            Stock normal ({{
+                                            stock_info.quantite_stock }})
+                                        </span>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- État après validation -->
+                                    <div class="stock-after">
+                                        <span class="stock-label"
+                                            >Après validation:</span
+                                        >
+                                        {% set stock_info_apres =
+                                        produit.stock_info_apres %} {% if
+                                        stock_info_apres.statut_stock ==
+                                        'critique' %}
+                                        <span
+                                            class="stock-status stock-critique"
+                                        >
+                                            <i
+                                                class="bi bi-exclamation-triangle"
+                                            ></i>
+                                            Deviendra critique ({{
+                                            stock_info_apres.quantite_stock }})
+                                        </span>
+                                        {% elif stock_info_apres.statut_stock ==
+                                        'faible' %}
+                                        <span class="stock-status stock-faible">
+                                            <i
+                                                class="bi bi-exclamation-circle"
+                                            ></i>
+                                            Deviendra faible ({{
+                                            stock_info_apres.quantite_stock }})
+                                        </span>
+                                        {% elif stock_info_apres.statut_stock ==
+                                        'surstock' %}
+                                        <span class="stock-status stock-normal">
+                                            <i
+                                                class="bi bi-arrow-up-circle"
+                                            ></i>
+                                            Restera en surstock ({{
+                                            stock_info_apres.quantite_stock }})
+                                        </span>
+                                        {% else %}
+                                        <span class="stock-status stock-normal">
+                                            <i class="bi bi-check-circle"></i>
+                                            Restera normal ({{
+                                            stock_info_apres.quantite_stock }})
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <!-- Jauge de progression pour les utilisateurs normaux -->
+                        <div class="progress-tracker">
+                            <div class="progress-steps">
+                                <!-- Ligne de progression -->
+                                <div class="progress-line"></div>
+                                <div
+                                    class="progress-line-active"
+                                    style="width: {% if demande.statut == 'En attente' %}25%{% elif demande.statut == 'Approuvée' %}50%{% elif demande.statut == 'En cours' %}75%{% elif demande.statut == 'Terminée' %}100%{% else %}0%{% endif %}"
+                                ></div>
+
+                                <!-- Bonhomme animé -->
+                                {% if demande.statut not in ['Rejetée',
+                                'Rejetee'] %}
+                                <div
+                                    class="delivery-person"
+                                    style="left: {% if demande.statut == 'En attente' %}calc(25% - 12px){% elif demande.statut == 'Approuvée' %}calc(50% - 12px){% elif demande.statut == 'En cours' %}calc(75% - 12px){% elif demande.statut == 'Terminée' %}calc(100% - 12px){% else %}calc(0% - 12px){% endif %}"
+                                >
+                                    <i class="bi bi-person-walking"></i>
+                                </div>
+                                {% endif %}
+
+                                <!-- Étape 1: En attente -->
+                                <div class="progress-step">
+                                    <div
+                                        class="step-circle {% if demande.statut == 'En attente' %}active{% elif demande.statut in ['Approuvée', 'En cours', 'Terminée'] %}completed{% endif %}"
+                                    >
+                                        <i class="bi bi-clock"></i>
+                                    </div>
+                                    <div
+                                        class="step-label {% if demande.statut == 'En attente' %}active{% elif demande.statut in ['Approuvée', 'En cours', 'Terminée'] %}completed{% endif %}"
+                                    >
+                                        En attente
+                                    </div>
+                                </div>
+
+                                <!-- Étape 2: Approuvée -->
+                                <div class="progress-step">
+                                    <div
+                                        class="step-circle {% if demande.statut == 'Approuvée' %}active{% elif demande.statut in ['En cours', 'Terminée'] %}completed{% endif %}"
+                                    >
+                                        <i class="bi bi-check-circle"></i>
+                                    </div>
+                                    <div
+                                        class="step-label {% if demande.statut == 'Approuvée' %}active{% elif demande.statut in ['En cours', 'Terminée'] %}completed{% endif %}"
+                                    >
+                                        Approuvée
+                                    </div>
+                                </div>
+
+                                <!-- Étape 3: En cours -->
+                                <div class="progress-step">
+                                    <div
+                                        class="step-circle {% if demande.statut == 'En cours' %}active{% elif demande.statut == 'Terminée' %}completed{% endif %}"
+                                    >
+                                        <i class="bi bi-box-seam"></i>
+                                    </div>
+                                    <div
+                                        class="step-label {% if demande.statut == 'En cours' %}active{% elif demande.statut == 'Terminée' %}completed{% endif %}"
+                                    >
+                                        En préparation
+                                    </div>
+                                </div>
+
+                                <!-- Étape 4: Terminée -->
+                                <div class="progress-step">
+                                    <div
+                                        class="step-circle {% if demande.statut == 'Terminée' %}completed active{% elif demande.statut in ['Rejetée', 'Rejetee'] %}rejected{% endif %}"
+                                    >
+                                        {% if demande.statut in ['Rejetée',
+                                        'Rejetee'] %}
+                                        <i class="bi bi-x-circle"></i>
+                                        {% else %}
+                                        <i class="bi bi-truck"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div
+                                        class="step-label {% if demande.statut == 'Terminée' %}completed active{% elif demande.statut in ['Rejetée', 'Rejetee'] %}rejected{% endif %}"
+                                    >
+                                        {% if demande.statut in ['Rejetée',
+                                        'Rejetee'] %} Rejetée {% else %} Livrée
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Message pour les utilisateurs normaux -->
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Statut de votre demande :</strong> {{
+                            demande.statut }} {% if demande.statut == 'En
+                            attente' %} <br /><small
+                                >Votre demande est en attente de validation par
+                                le magasinier.</small
+                            >
+                            {% elif demande.statut == 'Approuvée' %}
+                            <br /><small
+                                >Votre demande a été approuvée et est en cours
+                                de préparation.</small
+                            >
+                            {% elif demande.statut == 'En cours' %}
+                            <br /><small
+                                >Votre matériel est en cours de
+                                préparation.</small
+                            >
+                            {% elif demande.statut == 'Terminée' %}
+                            <br /><small
+                                >Votre demande a été traitée et le matériel
+                                livré.</small
+                            >
+                            {% elif demande.statut == 'Rejetée' %}
+                            <br /><small
+                                >Votre demande a été rejetée. Contactez le
+                                magasinier pour plus d'informations.</small
+                            >
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Actions -->
+                        <div class="actions-section">
+                            {% if is_user_role %}
+                            <!-- Actions pour utilisateurs normaux -->
+                            {% if demande.statut == 'En attente' %}
+                            <button
+                                class="action-btn btn-reject"
+                                onclick="annulerDemande('{{ demande.id_demande_base or demande.id_demande }}')"
+                            >
+                                <i class="bi bi-x-circle"></i>
+                                Annuler ma demande
+                            </button>
+                            {% endif %}
+                            <button
+                                class="action-btn btn-details"
+                                onclick="voirDetails('{{ demande.id_demande }}')"
+                            >
+                                <i class="bi bi-eye"></i>
+                                Voir détails
+                            </button>
+                            {% else %}
+                            <!-- Actions pour managers/admins -->
+                            {% if demande.statut == 'En attente' %}
+                            <button
+                                class="action-btn btn-approve"
+                                onclick="approuverDemande('{{ demande.id_demande_base or demande.id_demande }}')"
+                            >
+                                <i class="bi bi-check-circle"></i>
+                                Approuver le panier
+                            </button>
+                            <button
+                                class="action-btn btn-reject"
+                                onclick="rejeterDemande('{{ demande.id_demande_base or demande.id_demande }}')"
+                            >
+                                <i class="bi bi-x-circle"></i>
+                                Rejeter le panier
+                            </button>
+                            {% elif demande.statut == 'Approuvée' or
+                            (demande.statut == 'En cours' and
+                            demande.statut_preparation != 'Validée') %}
+                            <a
+                                href="/preparation-livraison/{{ demande.id_demande_base or demande.id_demande }}"
+                                class="action-btn btn-process"
+                            >
+                                <i class="bi bi-box-seam"></i>
+                                {% if demande.statut == 'Approuvée' %} Préparer
+                                avec scan {% else %} Continuer la préparation
+                                ({{ demande.nb_produits_scannes }}/{{
+                                demande.nb_produits_total }}) {% endif %}
+                            </a>
+                            {% elif demande.statut == 'En cours' and
+                            demande.statut_preparation == 'Validée' %}
+                            <button
+                                class="action-btn btn-deliver"
+                                onclick="livrerDemande('{{ demande.id_demande_base or demande.id_demande }}')"
+                            >
+                                <i class="bi bi-truck"></i>
+                                Livrer et retirer du stock
+                            </button>
+                            {% endif %}
+                            <button
+                                class="action-btn btn-details"
+                                onclick="voirDetails('{{ demande.id_demande }}')"
+                            >
+                                <i class="bi bi-eye"></i>
+                                Détails
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %} {% else %}
+    <div class="no-demandes">
+        <i class="bi bi-clipboard-x"></i>
+        <h5>Aucune demande trouvée</h5>
+        <p>Les demandes de matériel apparaîtront ici.</p>
+        <a href="{{ url_for('demande_materiel') }}" class="btn btn-primary">
+            <i class="bi bi-plus"></i> Créer une demande
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal pour les détails -->
+<div class="modal fade" id="detailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails de la demande</h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                ></button>
+            </div>
+            <div class="modal-body" id="detailsContent">
+                <!-- Contenu chargé dynamiquement -->
+            </div>
+            <div class="modal-footer">
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                >
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+    // Gestion des accordéons
+    document.addEventListener("DOMContentLoaded", function () {
+        // Ajouter la classe collapsed aux icônes au chargement
+        document.querySelectorAll(".collapse-icon").forEach((icon) => {
+            icon.closest('[data-bs-toggle="collapse"]').classList.add(
+                "collapsed"
+            );
+        });
+
+        // Gérer l'animation des icônes pour les demandes
+        document
+            .querySelectorAll('[data-bs-toggle="collapse"]')
+            .forEach((trigger) => {
+                trigger.addEventListener("click", function () {
+                    const icon = this.querySelector(".collapse-icon");
+                    if (icon) {
+                        setTimeout(() => {
+                            if (this.classList.contains("collapsed")) {
+                                this.classList.remove("collapsed");
+                            } else {
+                                this.classList.add("collapsed");
+                            }
+                        }, 10);
+                    }
+
+                    // Gérer l'animation pour les alertes
+                    const alerteToggle = this.querySelector(".alerte-toggle");
+                    if (alerteToggle) {
+                        setTimeout(() => {
+                            if (this.classList.contains("alerte-collapsed")) {
+                                this.classList.remove("alerte-collapsed");
+                            } else {
+                                this.classList.add("alerte-collapsed");
+                            }
+                        }, 10);
+                    }
+                });
+            });
+
+        // Animation des jauges de progression
+        function animateProgressTrackers() {
+            document
+                .querySelectorAll(".progress-line-active")
+                .forEach((line) => {
+                    const targetWidth = line.style.width;
+                    line.style.width = "0%";
+                    setTimeout(() => {
+                        line.style.width = targetWidth;
+                    }, 300);
+                });
+
+            document.querySelectorAll(".delivery-person").forEach((person) => {
+                const targetLeft = person.style.left;
+                person.style.left = "calc(0% - 12px)";
+                setTimeout(() => {
+                    person.style.left = targetLeft;
+                }, 500);
+            });
+        }
+
+        // Animer les jauges au chargement
+        setTimeout(animateProgressTrackers, 100);
+
+        // Auto-expand des alertes critiques
+        document
+            .querySelectorAll(".alerte-danger .alerte-header")
+            .forEach((header) => {
+                // Ouvrir automatiquement les alertes critiques
+                setTimeout(() => {
+                    header.click();
+                }, 500);
+            });
+    });
+
+    // Fonctions d'action
+    async function approuverDemande(idDemande) {
+        if (
+            confirm(
+                "Êtes-vous sûr de vouloir approuver ce panier de demandes ?"
+            )
+        ) {
+            try {
+                const response = await makeRequest(
+                    `/demandes/${idDemande}/approuver`,
+                    "POST"
+                );
+                if (response.success) {
+                    showNotification(response.message, "success");
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification("Erreur lors de l'approbation", "danger");
+                }
+            } catch (error) {
+                console.error("Erreur:", error);
+                showNotification("Erreur de connexion", "danger");
+            }
+        }
+    }
+
+    async function rejeterDemande(idDemande) {
+        const raison = prompt("Raison du rejet (optionnel):");
+        if (raison !== null) {
+            try {
+                const response = await makeRequest(
+                    `/demandes/${idDemande}/rejeter`,
+                    "POST",
+                    { commentaire: raison }
+                );
+                if (response.success) {
+                    showNotification(response.message, "success");
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification(
+                        response.message || "Erreur lors du rejet",
+                        "danger"
+                    );
+                }
+            } catch (error) {
+                showNotification("Erreur de connexion", "danger");
+            }
+        }
+    }
+
+    async function annulerDemande(idDemande) {
+        if (confirm("Êtes-vous sûr de vouloir annuler votre demande ?")) {
+            try {
+                const response = await makeRequest(
+                    `/demandes/${idDemande}/rejeter`,
+                    "POST",
+                    { commentaire: "Annulée par le demandeur" }
+                );
+                if (response.success) {
+                    showNotification("Demande annulée avec succès", "success");
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification("Erreur lors de l'annulation", "danger");
+                }
+            } catch (error) {
+                showNotification("Erreur de connexion", "danger");
+            }
+        }
+    }
+
+    async function traiterDemande(idDemande) {
+        if (confirm("Marquer ce panier comme en cours de préparation ?")) {
+            try {
+                const response = await makeRequest(
+                    `/demandes/${idDemande}/traiter`,
+                    "POST"
+                );
+                if (response.success) {
+                    showNotification(response.message, "success");
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification("Erreur lors du traitement", "danger");
+                }
+            } catch (error) {
+                console.error("Erreur:", error);
+                showNotification("Erreur de connexion", "danger");
+            }
+        }
+    }
+
+    async function livrerDemande(idDemande) {
+        if (
+            confirm(
+                "Confirmer la livraison ? Le stock sera automatiquement mis à jour."
+            )
+        ) {
+            try {
+                const response = await makeRequest(
+                    `/demandes/${idDemande}/livrer`,
+                    "POST"
+                );
+                if (response.success) {
+                    showNotification(
+                        response.message + " - Stock mis à jour",
+                        "success"
+                    );
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification("Erreur lors de la livraison", "danger");
+                }
+            } catch (error) {
+                console.error("Erreur:", error);
+                showNotification("Erreur de connexion", "danger");
+            }
+        }
+    }
+
+    function voirDetails(idDemande) {
+        // Simulation - remplacer par vraie API
+        document.getElementById("detailsContent").innerHTML = `
+            <div class="alert alert-info">
+                <h6>Demande ${idDemande}</h6>
+                <p>Détails complets de la demande...</p>
+                            </div>
+        `;
+        new bootstrap.Modal(document.getElementById("detailsModal")).show();
+    }
+
+    function showNotification(message, type) {
+        // Créer une notification toast
+        const toast = document.createElement("div");
+        toast.className = `alert alert-${type} position-fixed`;
+        toast.style.cssText =
+            "top: 20px; right: 20px; z-index: 9999; min-width: 300px;";
+        toast.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+        `;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.remove();
+            }
+        }, 3000);
+    }
+
+    // Gestion des filtres par badges
+    document.querySelectorAll(".filtre-badge").forEach((badge) => {
+        badge.addEventListener("click", function () {
+            const statut = this.dataset.statut;
+            const url = new URL(window.location);
+
+            if (statut === "tous") {
+                url.searchParams.delete("statut");
+            } else {
+                url.searchParams.set("statut", statut);
+            }
+
+            window.location.href = url.toString();
+        });
+    });
+
+    // Fonction API helper
+    async function makeRequest(url, method = "GET", data = null) {
+        const options = {
+            method: method,
+            headers: {
+                "Content-Type": "application/json",
+            },
+        };
+
+        if (data) {
+            options.body = JSON.stringify(data);
+        }
+
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return await response.json();
+    }
+</script>
+{% endblock %}
