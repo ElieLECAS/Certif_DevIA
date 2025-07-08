@@ -31,8 +31,8 @@ services:
 
     # API FastAPI avec interface web intégrée - IMAGE DOCKER HUB
     api:
-        # image: elielecas/gmao-api:buggy
-        image: elielecas/gmao-api:correct
+        image: elielecas/gmao-api:buggy
+        # image: elielecas/gmao-api:correct
         container_name: gmao-api-web-prod
         ports:
             - "8081:8000" # Interface web sur le port 8080
@@ -50,3 +50,39 @@ services:
         restart: unless-stopped
         env_file:
             - .env
+
+    prometheus:
+        image: prom/prometheus:latest
+        container_name: gmao-prometheus
+        ports:
+            - "9090:9090"
+        volumes:
+            - ./grafana/provisioning/datasources:/etc/prometheus
+            - prometheus_data:/prometheus
+        command:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--web.console.libraries=/etc/prometheus/console_libraries'
+            - '--web.console.templates=/etc/prometheus/consoles'
+            - '--storage.tsdb.retention.time=200h'
+            - '--web.enable-lifecycle'
+        restart: unless-stopped
+
+    # Grafana pour la visualisation
+    grafana:
+        image: grafana/grafana:latest
+        container_name: gmao-grafana
+        ports:
+            - "3000:3000"
+        environment:
+            - GF_SECURITY_ADMIN_USER=admin
+            - GF_SECURITY_ADMIN_PASSWORD=admin
+            - GF_USERS_ALLOW_SIGN_UP=false
+        volumes:
+            - grafana_data:/var/lib/grafana
+            - ./grafana/provisioning:/etc/grafana/provisioning
+        restart: unless-stopped
+
+volumes:
+    prometheus_data:
+    grafana_data:
