@@ -30,6 +30,48 @@ services:
             - "${POSTGRES_PORT}:5432"
         restart: unless-stopped
 
+    mysql_db:
+        image: mysql:8.0
+        container_name: mysql_fenetre
+        environment:
+            MYSQL_DATABASE: ${MYSQL_DB}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+        volumes:
+            - mysql_data:/var/lib/mysql
+            - ./commandes/init.sql:/docker-entrypoint-initdb.d/init.sql
+        ports:
+            - "3306:3306"
+        restart: unless-stopped
+
+    sync_service:
+        build: ./script
+        container_name: sync_service
+        depends_on:
+            - mysql_db
+            - db
+            - ftp
+        environment:
+            - MYSQL_HOST=mysql_db
+            - MYSQL_DB=${MYSQL_DB}
+            - MYSQL_USER=${MYSQL_USER}
+            - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+            - POSTGRES_HOST=db
+            - POSTGRES_DB=${POSTGRES_DB}
+            - POSTGRES_USER=${POSTGRES_USER}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            - FTP_HOST=ftp
+            - FTP_USER=${FTP_USER}
+            - FTP_PASS=${FTP_PASS}
+            - SYNC_HOUR=${SYNC_HOUR:-8}
+            - SYNC_MINUTE=${SYNC_MINUTE:-0}
+            - SYNC_INTERVAL=${SYNC_INTERVAL}
+        volumes:
+            - ./script:/app
+            - ./logs:/app/logs
+        restart: unless-stopped
+
     api:
         build: ./api
         container_name: fastapi_server
@@ -46,23 +88,6 @@ services:
             - ./api:/app
         restart: unless-stopped
 
-    parser:
-        build: ./script
-        container_name: log_parser
-        depends_on:
-            - ftp
-            - db
-        environment:
-            - FTP_HOST=ftp
-            - FTP_USER=${FTP_USER}
-            - FTP_PASS=${FTP_PASS}
-            - POSTGRES_HOST=${POSTGRES_HOST}
-            - POSTGRES_DB=${POSTGRES_DB}
-            - POSTGRES_USER=${POSTGRES_USER}
-            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-        volumes:
-            - ./script:/app
-        restart: unless-stopped
-
 volumes:
     pgdata:
+    mysql_data:
