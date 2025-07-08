@@ -16,8 +16,6 @@ services:
             SUPERUSER_NOM_COMPLET: ${SUPERUSER_NOM_COMPLET:-}
             SUPERUSER_PASSWORD: ${SUPERUSER_PASSWORD:-}
             SUPERUSER_ROLE: ${SUPERUSER_ROLE:-}
-        volumes:
-            - postgres_data:/var/lib/postgresql/data
         restart: unless-stopped
         healthcheck:
             test:
@@ -27,14 +25,14 @@ services:
                 ]
             interval: 30s
             timeout: 10s
-            retries: 3
+            retries: 6
 
     # API FastAPI avec interface web intégrée - IMAGE DOCKER HUB
     api:
-        image: elielecas/gmao-api:latest
+        image: elielecas/gmao-api:buggy
         container_name: gmao-api-web-prod
         ports:
-            - "3738:8000" # Interface web sur le port 8080
+            - "8080:8000" # Interface web sur le port 8080
         environment:
             - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
             - PYTHONUNBUFFERED=1
@@ -47,19 +45,3 @@ services:
             postgres:
                 condition: service_healthy
         restart: unless-stopped
-
-    # Portainer pour la gestion des conteneurs
-    portainer:
-        image: portainer/portainer-ce:latest
-        container_name: gmao-portainer
-        ports:
-            - "9000:9000"
-        volumes:
-            - /var/run/docker.sock:/var/run/docker.sock
-            - portainer_data:/data
-        restart: unless-stopped
-        command: -H unix:///var/run/docker.sock
-
-volumes:
-    postgres_data:
-    portainer_data:
