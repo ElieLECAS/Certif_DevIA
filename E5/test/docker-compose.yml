@@ -17,6 +17,8 @@ services:
             SUPERUSER_PASSWORD: ${SUPERUSER_PASSWORD:-}
             SUPERUSER_ROLE: ${SUPERUSER_ROLE:-}
         restart: unless-stopped
+        env_file:
+            - .env
         healthcheck:
             test:
                 [
@@ -29,10 +31,11 @@ services:
 
     # API FastAPI avec interface web intégrée - IMAGE DOCKER HUB
     api:
-        image: elielecas/gmao-api:buggy
+        # image: elielecas/gmao-api:buggy
+        image: elielecas/gmao-api:correct
         container_name: gmao-api-web-prod
         ports:
-            - "8080:8000" # Interface web sur le port 8080
+            - "8081:8000" # Interface web sur le port 8080
         environment:
             - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
             - PYTHONUNBUFFERED=1
@@ -45,3 +48,5 @@ services:
             postgres:
                 condition: service_healthy
         restart: unless-stopped
+        env_file:
+            - .env
