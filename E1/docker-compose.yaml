@@ -29,6 +29,12 @@ services:
         ports:
             - "${POSTGRES_PORT}:5432"
         restart: unless-stopped
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 30s
 
     mysql_db:
         image: mysql:8.0
@@ -48,15 +54,7 @@ services:
     sync_service:
         build: ./script
         container_name: sync_service
-        depends_on:
-            - mysql_db
-            - db
-            - ftp
         environment:
-            - MYSQL_HOST=mysql_db
-            - MYSQL_DB=${MYSQL_DB}
-            - MYSQL_USER=${MYSQL_USER}
-            - MYSQL_PASSWORD=${MYSQL_PASSWORD}
             - POSTGRES_HOST=db
             - POSTGRES_DB=${POSTGRES_DB}
             - POSTGRES_USER=${POSTGRES_USER}
@@ -64,9 +62,9 @@ services:
             - FTP_HOST=ftp
             - FTP_USER=${FTP_USER}
             - FTP_PASS=${FTP_PASS}
-            - SYNC_HOUR=${SYNC_HOUR:-8}
-            - SYNC_MINUTE=${SYNC_MINUTE:-0}
-            - SYNC_INTERVAL=${SYNC_INTERVAL}
+            # Configuration de la synchronisation
+            - SYNC_INTERVAL=${SYNC_INTERVAL:-3600}  # Intervalle en secondes (défaut: 1 heure)
+            - DELETE_AFTER_SYNC=${DELETE_AFTER_SYNC:-false}  # Supprimer les fichiers après traitement
         volumes:
             - ./script:/app
             - ./logs:/app/logs
@@ -76,7 +74,8 @@ services:
         build: ./api
         container_name: fastapi_server
         depends_on:
-            - db
+            db:
+                condition: service_healthy
         environment:
             - POSTGRES_HOST=${POSTGRES_HOST}
             - POSTGRES_DB=${POSTGRES_DB}

@@ -1,13 +1,17 @@
 # Configuration FTP
-FTP_HOST=ftp
-FTP_USER=SimplonFTP
-FTP_PASS=
-PASV_ADDRESS=127.0.0.1
+FTP_USER=user
+FTP_PASS=pass
+PASV_ADDRESS=localhost
 PASV_MIN_PORT=21000
 PASV_MAX_PORT=21010
 
 # Configuration PostgreSQL
 POSTGRES_HOST=db
-POSTGRES_DB=logsdb
-POSTGRES_USER=SimplonPostgres
-POSTGRES_PASSWORD=
+POSTGRES_DB=production_db
+POSTGRES_USER=admin
+POSTGRES_PASSWORD=admin_password
+POSTGRES_PORT=5432
+
+# Configuration de la synchronisation
+SYNC_INTERVAL=3600  # Synchronisation toutes les heures
+DELETE_AFTER_SYNC=false  # Ne pas supprimer les fichiers après traitement

@@ -1011,8 +1011,8 @@ def main():
     # Créer une instance du service
     service = FTPLogService()
     
-    # Traiter tous les logs (avec suppression des fichiers après traitement)
-    success = service.process_all_logs(delete_after_processing=True)
+    # Traiter tous les logs (sans suppression des fichiers après traitement)
+    success = service.process_all_logs(delete_after_processing=False)
     
     if success:
         logger.info("🎉 Traitement terminé avec succès!")
