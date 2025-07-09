@@ -40,9 +40,9 @@ services:
         image: mysql:8.0
         container_name: mysql_fenetre
         environment:
-            MYSQL_DATABASE: ${MYSQL_DB}
-            MYSQL_USER: ${MYSQL_USER}
-            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            MYSQL_DATABASE: db_commandes
+            MYSQL_USER: fenetre_user
+            MYSQL_PASSWORD: password
             MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
         volumes:
             - mysql_data:/var/lib/mysql
@@ -50,15 +50,33 @@ services:
         ports:
             - "3306:3306"
         restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "fenetre_user", "-ppassword"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 30s
 
     sync_service:
         build: ./script
         container_name: sync_service
+        depends_on:
+            mysql_db:
+                condition: service_healthy
+            db:
+                condition: service_healthy
         environment:
+            # Configuration PostgreSQL
             - POSTGRES_HOST=db
             - POSTGRES_DB=${POSTGRES_DB}
             - POSTGRES_USER=${POSTGRES_USER}
             - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            # Configuration MySQL
+            - MYSQL_HOST=mysql_db
+            - MYSQL_DB=db_commandes
+            - MYSQL_USER=fenetre_user
+            - MYSQL_PASSWORD=password
+            # Configuration FTP
             - FTP_HOST=ftp
             - FTP_USER=${FTP_USER}
             - FTP_PASS=${FTP_PASS}
@@ -68,7 +86,9 @@ services:
         volumes:
             - ./script:/app
             - ./logs:/app/logs
-        restart: unless-stopped
+        restart: "no"
+        command: >
+            sh -c "sleep 60 && python mysql_sync_service.py"
 
     api:
         build: ./api

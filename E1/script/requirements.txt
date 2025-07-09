@@ -3,4 +3,8 @@ pymysql==1.1.0
 psycopg2==2.9.9
 pandas==2.1.3
 apscheduler==3.10.4
-python-dotenv
+python-dotenv==1.0.0
+psycopg2-binary==2.9.9
+pysftp==0.2.9
+APScheduler==3.10.4
+mysql-connector-python==8.2.0
