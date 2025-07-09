@@ -26,10 +26,10 @@ echo "MYSQL_PORT=${MYSQL_PORT:-3306}" >> /etc/cron.d/mysql_sync_cron
 
 # Ajouter les tâches cron
 # Service FTP : toutes les 15 minutes (0, 15, 30, 45)
-echo "*/15 * * * * root cd /app && /usr/local/bin/python /app/ftp_log_service.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/ftp_log_cron
+echo "*/5 * * * * root cd /app && /usr/local/bin/python /app/ftp_log_service.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/ftp_log_cron
 
-# Service MySQL : toutes les 15 minutes avec un décalage de 5 minutes (5, 20, 35, 50)
-echo "5,20,35,57 * * * * root cd /app && /usr/local/bin/python /app/mysql_sync_service.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/mysql_sync_cron
+# Service MySQL : toutes les 15 minutes avec un décalage de 2 minutes (2, 17, 32, 47)
+echo "2,17,32,47 * * * * root cd /app && /usr/local/bin/python /app/mysql_sync_service.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/mysql_sync_cron
 
 # Donner les bonnes permissions
 chmod 0644 /etc/cron.d/ftp_log_cron
@@ -39,9 +39,9 @@ chmod 0644 /etc/cron.d/mysql_sync_cron
 cron
 
 # Exécuter les deux services immédiatement au démarrage, avec un délai entre eux
-(cd /app && /usr/local/bin/python /app/ftp_log_service.py >> /var/log/cron.log 2>&1) &
-sleep 30
-(cd /app && /usr/local/bin/python /app/mysql_sync_service.py >> /var/log/cron.log 2>&1) &
+#(cd /app && /usr/local/bin/python /app/ftp_log_service.py >> /var/log/cron.log 2>&1) &
+#sleep 30
+#(cd /app && /usr/local/bin/python /app/mysql_sync_service.py >> /var/log/cron.log 2>&1) &
 
 # Afficher les logs en temps réel
 tail -f /var/log/cron.log 
