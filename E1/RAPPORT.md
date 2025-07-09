@@ -73,6 +73,226 @@ Le système gère six tables principales :
 - Traitement des fichiers LOG au format standardisé
 - Gestion des variables d'environnement sécurisée
 
+### 4.1.1 Architecture Détaillée du Service FTP
+
+Le service FTP est un composant critique du système qui assure la collecte et le traitement des données de production. Son architecture a été conçue pour être robuste, sécurisée et efficace.
+
+#### Configuration et Sécurité
+- **Gestion des Credentials** :
+  - Utilisation de variables d'environnement (.env) pour les informations sensibles
+  - Séparation stricte des configurations de développement et production
+  - Authentification FTP sécurisée avec utilisateur dédié
+
+#### Processus de Synchronisation
+1. **Établissement de la Connexion**
+   - Connexion au serveur FTP avec gestion des erreurs
+   - Vérification de la disponibilité du serveur
+   - Logging détaillé des tentatives de connexion
+
+2. **Organisation des Dossiers**
+   - Structure hiérarchique par type de centre d'usinage :
+     ```
+     /
+     ├── DEM12 (PVC)/
+     ├── DEMALU (ALU)/
+     └── SU12 (HYBRIDE)/
+     ```
+   - Mapping automatique entre dossiers FTP et types de machines
+
+3. **Cycle de Traitement des Fichiers**
+   - Scan récursif des dossiers par type de machine
+   - Identification des nouveaux fichiers LOG
+   - Téléchargement sécurisé en mode binaire
+   - Vérification de l'intégrité des fichiers
+
+4. **Gestion des Erreurs et Reprise**
+   - Mécanisme de retry en cas d'échec de connexion
+   - Journalisation détaillée des erreurs
+   - Conservation des fichiers en cas d'échec de traitement
+   - Nettoyage automatique après traitement réussi
+
+#### Flux de Données vers PostgreSQL
+1. **Préparation des Données**
+   - Parsing du contenu des fichiers LOG
+   - Validation du format et de la structure
+   - Transformation en objets métier
+
+2. **Persistance en Base de Données**
+   - Création automatique des tables si nécessaires
+   - Transactions atomiques pour garantir l'intégrité
+   - Gestion des contraintes d'unicité
+   - Calcul des métriques en temps réel
+
+3. **Tables Impactées**
+   ```sql
+   - centre_usinage
+     └── Informations de base des machines
+   - session_production
+     └── Données agrégées par session
+   - job_profil
+     └── Détails des profils traités
+   - periode_attente
+     └── Périodes d'inactivité
+   - periode_arret
+     └── Arrêts machines
+   - piece_production
+     └── Détail de chaque pièce
+   ```
+
+#### Monitoring et Maintenance
+- Logs détaillés de chaque opération
+- Métriques de performance du service
+- Alertes en cas d'erreurs critiques
+- Documentation des procédures de maintenance
+
+Cette architecture garantit une collecte fiable et sécurisée des données de production, tout en assurant leur intégrité lors du transfert vers le système central PostgreSQL.
+
+### 4.1.2 Analyse Technique du Script FTP
+
+Le script `ftp_log_service.py` constitue le cœur du système de collecte et de traitement des données. Son architecture orientée objet et sa conception modulaire en font un composant robuste et maintenable.
+
+#### Structure du Code
+
+```python
+class FTPLogService:
+    def __init__(self):
+        # Configuration via variables d'environnement
+        self.ftp_host = os.getenv('FTP_HOST')
+        self.db_host = os.getenv('POSTGRES_HOST')
+        
+        # Mapping des types de machines
+        self.cu_directories = {
+            'DEM12 (PVC)': 'DEM12',
+            'DEMALU (ALU)': 'DEMALU', 
+            'SU12 (HYBRIDE)': 'SU12'
+        }
+```
+
+#### Fonctionnalités Clés
+
+1. **Gestion des Connexions**
+   - Connexion FTP sécurisée avec gestion des timeouts
+   - Pool de connexions PostgreSQL optimisé
+   - Fermeture automatique des ressources
+
+2. **Traitement des Fichiers LOG**
+   ```
+   Format: YYYYMMDD HH:MM:SS|@EventType: Details
+   
+   Types d'événements :
+   - StukUitgevoerd : Production de pièces
+   - MachineWait : Périodes d'attente
+   - MachineStop/Start : Cycles d'arrêt
+   - JobProfiel : Profils de production
+   ```
+
+3. **Analyse des Performances**
+   - Calcul en temps réel des métriques
+   - Agrégation des données par session
+   - Détection des anomalies
+
+4. **Persistence des Données**
+   ```sql
+   -- Exemple de structure relationnelle
+   centre_usinage
+      ↓
+   session_production
+      ↓
+   ├── job_profil
+   ├── periode_attente
+   ├── periode_arret
+   └── piece_production
+   ```
+
+#### Mécanismes de Sécurité
+
+1. **Protection des Données**
+   - Validation des entrées
+   - Échappement des caractères spéciaux
+   - Prévention des injections SQL
+
+2. **Gestion des Erreurs**
+   ```python
+   try:
+       # Opérations critiques
+   except Exception as e:
+       logger.error(f"❌ Erreur: {e}")
+       self.conn.rollback()
+   finally:
+       self.close_connections()
+   ```
+
+3. **Transactions Atomiques**
+   - Commit uniquement après succès complet
+   - Rollback automatique en cas d'erreur
+   - Préservation de l'intégrité des données
+
+#### Optimisations Techniques
+
+1. **Performance**
+   - Traitement par lots des enregistrements
+   - Mise en cache des requêtes fréquentes
+   - Indexation optimisée des tables
+
+2. **Mémoire**
+   - Streaming des fichiers volumineux
+   - Nettoyage périodique des ressources
+   - Gestion efficace des buffers
+
+3. **Réseau**
+   - Compression des données transmises
+   - Retry automatique sur échec réseau
+   - Timeouts configurables
+
+#### Monitoring et Maintenance
+
+1. **Logging Avancé**
+   ```python
+   logging.basicConfig(
+       level=logging.INFO,
+       format='%(asctime)s - %(levelname)s - %(message)s'
+   )
+   ```
+
+2. **Métriques de Performance**
+   - Temps de traitement par fichier
+   - Taux de succès/échec
+   - Utilisation des ressources
+
+3. **Maintenance Préventive**
+   - Détection des fichiers corrompus
+   - Nettoyage automatique des logs
+   - Alertes sur dysfonctionnements
+
+#### Cycle de Vie des Données
+
+1. **Acquisition**
+   ```mermaid
+   graph TD
+      A[Fichier LOG sur FTP] -->|Téléchargement| B[Validation Format]
+      B -->|Parse| C[Extraction Événements]
+      C -->|Analyse| D[Calcul Métriques]
+      D -->|Sauvegarde| E[PostgreSQL]
+      E -->|Nettoyage| F[Suppression FTP]
+   ```
+
+2. **Traitement**
+   - Validation du format
+   - Extraction des événements
+   - Calcul des métriques
+   - Agrégation des données
+
+3. **Persistence**
+   - Sauvegarde structurée
+   - Indexation automatique
+   - Archivage configurable
+
+Cette architecture technique garantit :
+- Une haute disponibilité du service
+- Une intégrité totale des données
+- Une maintenance facilitée
+- Une évolutivité du système
+
 ### 4.2 Parser de Logs
 Le parser analyse quatre types d'événements principaux :
 - `StukUitgevoerd` : Production de pièces
