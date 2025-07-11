@@ -313,6 +313,107 @@ L'API expose les fonctionnalités suivantes :
 - Journalisation des opérations
 - Gestion des erreurs et reprises
 
+### 4.1.3 Service de Synchronisation Unifié
+
+Le système implémente un service de synchronisation unifié (`unified_sync_service.py`) qui coordonne la collecte des données depuis trois sources principales :
+
+1. **Serveur FTP** : Collecte des fichiers LOG des machines
+2. **Base MySQL** : Extraction des données de commandes
+3. **Base PostgreSQL** : Stockage centralisé des données
+
+#### Architecture du Service
+
+```mermaid
+graph TD
+    A[Serveur FTP] -->|Fichiers LOG| D[Service Unifié]
+    B[MySQL DB] -->|Données Commandes| D
+    D -->|Stockage| C[PostgreSQL]
+    D -->|API| E[FastAPI]
+```
+
+#### Synchronisation MySQL
+
+Le service `mysql_sync_service.py` gère spécifiquement la synchronisation des données de commandes :
+
+```python
+class MySQLSyncService:
+    def __init__(self):
+        # Configuration des connexions
+        self.mysql_config = {
+            'host': os.getenv('MYSQL_HOST'),
+            'user': os.getenv('MYSQL_USER'),
+            'password': os.getenv('MYSQL_PASSWORD'),
+            'database': os.getenv('MYSQL_DB')
+        }
+        
+        self.pg_config = {
+            'dbname': os.getenv('POSTGRES_DB'),
+            'user': os.getenv('POSTGRES_USER'),
+            'password': os.getenv('POSTGRES_PASSWORD'),
+            'host': os.getenv('POSTGRES_HOST')
+        }
+```
+
+Le service effectue les opérations suivantes :
+1. Connexion à la base MySQL source
+2. Extraction des commandes avec volets roulants
+3. Transformation des données
+4. Insertion dans PostgreSQL
+
+#### Modèles de Données
+
+Les principales tables synchronisées sont :
+
+- `A_Kopf` : Informations principales des commandes
+- `A_Logbuch` : Journal des modifications
+- `P_Zubeh` : Accessoires et composants
+- `A_Vorgang` : Opérations de production
+
+#### Planification des Synchronisations
+
+Le service utilise APScheduler pour planifier les synchronisations :
+
+- Synchronisation FTP : Toutes les 15 minutes
+- Synchronisation MySQL : Une fois par jour (configurable)
+- Vérification des erreurs : Toutes les heures
+
+#### Gestion des Erreurs
+
+Le système implémente une gestion robuste des erreurs :
+
+1. **Logging détaillé** :
+   ```python
+   logging.basicConfig(
+       level=logging.INFO,
+       format='%(asctime)s - %(levelname)s - %(message)s',
+       handlers=[
+           logging.FileHandler('logs/sync.log'),
+           logging.StreamHandler()
+       ]
+   )
+   ```
+
+2. **Mécanisme de reprise** :
+   - Sauvegarde des états de synchronisation
+   - Reprise après erreur
+   - Notification des échecs
+
+#### Exposition via FastAPI
+
+Les données synchronisées sont exposées via une API REST FastAPI :
+
+1. **Points d'entrée principaux** :
+   - `/commandes/` : Liste des commandes
+   - `/stats/` : Statistiques de production
+   - `/machines/` : État des machines
+
+2. **Sécurité** :
+   - Authentification par token
+   - Validation des données
+   - Rate limiting
+
+Cette architecture garantit une synchronisation fiable et efficace des données entre les différentes sources, tout en fournissant une interface moderne et sécurisée pour l'accès aux données.
+
 ## 5. Résultats et Bénéfices
 
 ### 5.1 Métriques Calculées

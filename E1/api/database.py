@@ -1,34 +1,23 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel, Session, create_engine
+from typing import Generator
 import os
 from dotenv import load_dotenv
 
-# Charger les variables d'environnement
 load_dotenv()
 
-# Configuration de la base de données
-DB_HOST = os.getenv('POSTGRES_HOST')
-DB_NAME = os.getenv('POSTGRES_DB')
-DB_USER = os.getenv('POSTGRES_USER')
-DB_PASS = os.getenv('POSTGRES_PASSWORD')
+# Configuration de la base de données PostgreSQL
+DB_HOST = os.getenv('POSTGRES_HOST', 'db')
+DB_NAME = os.getenv('POSTGRES_DB', 'production')
+DB_USER = os.getenv('POSTGRES_USER', 'postgres')
+DB_PASS = os.getenv('POSTGRES_PASSWORD', 'example')
 
-# URL de connexion à PostgreSQL
-SQLALCHEMY_DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
 
-# Créer le moteur de base de données
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(DATABASE_URL, echo=True)
 
-# Créer une session locale
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
 
-# Base pour les modèles
-Base = declarative_base()
-
-# Fonction pour obtenir une session de base de données
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close() 
+def get_session() -> Generator[Session, None, None]:
+    with Session(engine) as session:
+        yield session 

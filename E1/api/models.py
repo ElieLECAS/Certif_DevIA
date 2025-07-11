@@ -1,98 +1,129 @@
-from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, ForeignKey, Text, Numeric
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from database import Base
+from datetime import datetime, date
+from typing import Optional, List
+from sqlmodel import SQLModel, Field, Relationship
+from decimal import Decimal
 
-class CentreUsinage(Base):
-    __tablename__ = "centre_usinage"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    nom = Column(String(100), unique=True, nullable=False, index=True)
-    type_cu = Column(String(50), nullable=False)
-    description = Column(Text)
-    actif = Column(Boolean, default=True)
-    date_creation = Column(DateTime, default=func.current_timestamp())
-    
-    # Relations
-    sessions_production = relationship("SessionProduction", back_populates="centre_usinage")
+class CentreUsinageBase(SQLModel):
+    nom: str = Field(unique=True, index=True)
+    type_cu: str
+    description: Optional[str] = None
+    actif: bool = Field(default=True)
 
-class SessionProduction(Base):
-    __tablename__ = "session_production"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    centre_usinage_id = Column(Integer, ForeignKey("centre_usinage.id"))
-    date_production = Column(Date, nullable=False, index=True)
-    heure_premiere_piece = Column(DateTime)
-    heure_derniere_piece = Column(DateTime)
-    heure_premier_machine_start = Column(DateTime)
-    heure_dernier_machine_stop = Column(DateTime)
-    total_pieces = Column(Integer, default=0)
-    duree_production_totale = Column(Numeric(10, 4))
-    temps_attente = Column(Numeric(10, 4))
-    temps_arret_volontaire = Column(Numeric(10, 4))
-    temps_production_effectif = Column(Numeric(10, 4))
-    taux_occupation = Column(Numeric(5, 2))
-    taux_attente = Column(Numeric(5, 2))
-    taux_arret_volontaire = Column(Numeric(5, 2))
-    fichier_log_source = Column(String(255))
-    date_creation = Column(DateTime, default=func.current_timestamp())
-    
-    # Relations
-    centre_usinage = relationship("CentreUsinage", back_populates="sessions_production")
-    job_profils = relationship("JobProfil", back_populates="session")
-    periodes_attente = relationship("PeriodeAttente", back_populates="session")
-    periodes_arret = relationship("PeriodeArret", back_populates="session")
-    pieces_production = relationship("PieceProduction", back_populates="session")
+class CentreUsinage(CentreUsinageBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    date_creation: datetime = Field(default_factory=datetime.utcnow)
+    sessions_production: List["SessionProduction"] = Relationship(back_populates="centre_usinage")
 
-class JobProfil(Base):
-    __tablename__ = "job_profil"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, ForeignKey("session_production.id"))
-    reference = Column(String(50), nullable=False)
-    longueur = Column(Numeric(10, 2))
-    couleur = Column(String(50))
-    timestamp_debut = Column(DateTime)
-    date_creation = Column(DateTime, default=func.current_timestamp())
-    
-    # Relations
-    session = relationship("SessionProduction", back_populates="job_profils")
+class SessionProductionBase(SQLModel):
+    centre_usinage_id: int = Field(foreign_key="centreusinage.id")
+    date_production: date
+    heure_premiere_piece: Optional[datetime] = None
+    heure_derniere_piece: Optional[datetime] = None
+    heure_premier_machine_start: Optional[datetime] = None
+    heure_dernier_machine_stop: Optional[datetime] = None
+    total_pieces: int = Field(default=0)
+    duree_production_totale: float = Field(default=0)
+    temps_attente: float = Field(default=0)
+    temps_arret_volontaire: float = Field(default=0)
+    temps_production_effectif: float = Field(default=0)
+    taux_occupation: float = Field(default=0)
+    taux_attente: float = Field(default=0)
+    taux_arret_volontaire: float = Field(default=0)
+    fichier_log_source: Optional[str] = None
 
-class PeriodeAttente(Base):
-    __tablename__ = "periode_attente"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, ForeignKey("session_production.id"))
-    timestamp_debut = Column(DateTime, nullable=False)
-    timestamp_fin = Column(DateTime, nullable=False)
-    duree_secondes = Column(Integer, nullable=False)
-    date_creation = Column(DateTime, default=func.current_timestamp())
-    
-    # Relations
-    session = relationship("SessionProduction", back_populates="periodes_attente")
+class SessionProduction(SessionProductionBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    date_creation: datetime = Field(default_factory=datetime.utcnow)
+    centre_usinage: CentreUsinage = Relationship(back_populates="sessions_production")
+    job_profils: List["JobProfil"] = Relationship(back_populates="session")
+    periodes_attente: List["PeriodeAttente"] = Relationship(back_populates="session")
+    periodes_arret: List["PeriodeArret"] = Relationship(back_populates="session")
+    pieces_production: List["PieceProduction"] = Relationship(back_populates="session")
 
-class PeriodeArret(Base):
-    __tablename__ = "periode_arret"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, ForeignKey("session_production.id"))
-    timestamp_debut = Column(DateTime, nullable=False)
-    timestamp_fin = Column(DateTime, nullable=False)
-    duree_secondes = Column(Integer, nullable=False)
-    date_creation = Column(DateTime, default=func.current_timestamp())
-    
-    # Relations
-    session = relationship("SessionProduction", back_populates="periodes_arret")
+class JobProfilBase(SQLModel):
+    session_id: int = Field(foreign_key="sessionproduction.id")
+    reference: str
+    longueur: Optional[float] = None
+    couleur: Optional[str] = None
+    timestamp_debut: Optional[datetime] = None
 
-class PieceProduction(Base):
-    __tablename__ = "piece_production"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, ForeignKey("session_production.id"))
-    numero_piece = Column(Integer, nullable=False)
-    timestamp_production = Column(DateTime, nullable=False)
-    details = Column(Text)
-    date_creation = Column(DateTime, default=func.current_timestamp())
-    
-    # Relations
-    session = relationship("SessionProduction", back_populates="pieces_production") 
+class JobProfil(JobProfilBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    date_creation: datetime = Field(default_factory=datetime.utcnow)
+    session: SessionProduction = Relationship(back_populates="job_profils")
+
+class PeriodeAttenteBase(SQLModel):
+    session_id: int = Field(foreign_key="sessionproduction.id")
+    timestamp_debut: datetime
+    timestamp_fin: datetime
+    duree_secondes: int
+
+class PeriodeAttente(PeriodeAttenteBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    date_creation: datetime = Field(default_factory=datetime.utcnow)
+    session: SessionProduction = Relationship(back_populates="periodes_attente")
+
+class PeriodeArretBase(SQLModel):
+    session_id: int = Field(foreign_key="sessionproduction.id")
+    timestamp_debut: datetime
+    timestamp_fin: datetime
+    duree_secondes: int
+
+class PeriodeArret(PeriodeArretBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    date_creation: datetime = Field(default_factory=datetime.utcnow)
+    session: SessionProduction = Relationship(back_populates="periodes_arret")
+
+class PieceProductionBase(SQLModel):
+    session_id: int = Field(foreign_key="sessionproduction.id")
+    numero_piece: int
+    timestamp_production: datetime
+    details: Optional[str] = None
+
+class PieceProduction(PieceProductionBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    date_creation: datetime = Field(default_factory=datetime.utcnow)
+    session: SessionProduction = Relationship(back_populates="pieces_production")
+
+# Modèles pour la création et la lecture
+class CentreUsinageCreate(CentreUsinageBase):
+    pass
+
+class CentreUsinageRead(CentreUsinageBase):
+    id: int
+    date_creation: datetime
+
+class SessionProductionCreate(SessionProductionBase):
+    pass
+
+class SessionProductionRead(SessionProductionBase):
+    id: int
+    date_creation: datetime
+
+class JobProfilCreate(JobProfilBase):
+    pass
+
+class JobProfilRead(JobProfilBase):
+    id: int
+    date_creation: datetime
+
+class PeriodeAttenteCreate(PeriodeAttenteBase):
+    pass
+
+class PeriodeAttenteRead(PeriodeAttenteBase):
+    id: int
+    date_creation: datetime
+
+class PeriodeArretCreate(PeriodeArretBase):
+    pass
+
+class PeriodeArretRead(PeriodeArretBase):
+    id: int
+    date_creation: datetime
+
+class PieceProductionCreate(PieceProductionBase):
+    pass
+
+class PieceProductionRead(PieceProductionBase):
+    id: int
+    date_creation: datetime 
