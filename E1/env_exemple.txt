@@ -1,16 +1,22 @@
 # Configuration FTP
-FTP_USER=user
-FTP_PASS=pass
-PASV_ADDRESS=localhost
+FTP_USER=ftp
+FTP_USER=SimplonFTP
+FTP_PASS=Azerty123
+PASV_ADDRESS=0.0.0.0
 PASV_MIN_PORT=21000
 PASV_MAX_PORT=21010
 
 # Configuration PostgreSQL
 POSTGRES_HOST=db
-POSTGRES_DB=production_db
+POSTGRES_DB=postgres
 POSTGRES_USER=admin
-POSTGRES_PASSWORD=admin_password
+POSTGRES_PASSWORD=postgres
 POSTGRES_PORT=5432
+
+MYSQL_DB=fenetre_db 
+MYSQL_USER=fenetre_user
+MYSQL_PASSWORD=Azerty123
+MYSQL_ROOT_PASSWORD=Azerty123
 
 # Configuration de la synchronisation
 SYNC_INTERVAL=3600  # Synchronisation toutes les heures

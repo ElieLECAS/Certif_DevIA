@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     libpq-dev \
     cron \
+    dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -20,6 +21,8 @@ RUN touch /var/log/cron.log
 
 # Donner les permissions d'exécution au script de démarrage
 COPY start.sh /start.sh
+# Convertir les fins de ligne Windows vers Unix
+RUN dos2unix /start.sh
 RUN chmod +x /start.sh
 
 # Créer le dossier pour les fichiers cron
