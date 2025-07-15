@@ -47,6 +47,45 @@ Le système s'articule autour de trois composants principaux :
 │ des machines    │    │ les métriques   │    │ d'analyse       │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
+Le système s'articule autour de trois composants principaux :
+```
+                          ┌─────────────────────┐
+                          │      Utilisateur    │
+                          │   (via Swagger/API) │
+                          └────────┬────────────┘
+                                   │
+                                   ▼
+                          ┌─────────────────────┐
+                          │     API FastAPI     │
+                          │     (uvicorn)       │
+                          └────────┬────────────┘
+                                   │ Lecture
+                                   ▼
+                          ┌─────────────────────┐
+                          │   PostgreSQL BDD    │
+                          │ "production"        │
+                          └────────┬────────────┘
+                            ▲     ▲
+       Écriture via cron    │     │ Écriture via cron
+     tous les jours à 4h    │     │ tous les jours à 9h et 14h
+                            │     │
+                            │     │
+        ┌───────────────────┘     └────────────────────┐
+        ▼                                              ▼
+┌─────────────────────┐                        ┌───────────────────────┐
+│ ftp_log_service.py  │                        │ mysql_sync_service.py │
+│  → Parsing LOG      │                        │  → Requête SQL        │
+│  → Calcul TRS       │                        │  → Accessoires VR     │
+│  → Insertion BDD    │                        │  → Insertion BDD      │
+└─────────┬───────────┘                        └─────────┬─────────────┘
+          │                                              │
+          ▼                                              ▼
+ ┌──────────────────┐                          ┌────────────────────┐
+ │    FTP Server    │                          │     MySQL ERP      │
+ │  (fauria/vsftpd) │                          │   (simulation)     │
+ └──────────────────┘                          └────────────────────┘
+
+```
 
 ### 3.2 Technologies Utilisées
 - **Docker et Docker Compose** : Conteneurisation des services

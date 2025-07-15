@@ -1011,8 +1011,11 @@ def main():
     # Créer une instance du service
     service = FTPLogService()
     
-    # Traiter tous les logs (sans suppression des fichiers après traitement)
-    success = service.process_all_logs(delete_after_processing=False)
+    # Lire la configuration depuis les variables d'environnement
+    delete_after_sync = os.getenv('DELETE_AFTER_SYNC', 'false').lower() == 'true'
+    
+    # Traiter tous les logs selon la configuration
+    success = service.process_all_logs(delete_after_processing=delete_after_sync)
     
     if success:
         logger.info("🎉 Traitement terminé avec succès!")

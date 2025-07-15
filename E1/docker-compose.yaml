@@ -81,7 +81,6 @@ services:
             - FTP_USER=${FTP_USER}
             - FTP_PASS=${FTP_PASS}
             # Configuration de la synchronisation
-            - SYNC_INTERVAL=${SYNC_INTERVAL:-3600}  # Intervalle en secondes (défaut: 1 heure)
             - DELETE_AFTER_SYNC=${DELETE_AFTER_SYNC:-false}  # Supprimer les fichiers après traitement
         volumes:
             - ./script:/app

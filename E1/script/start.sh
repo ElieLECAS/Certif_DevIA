@@ -26,10 +26,10 @@ echo "MYSQL_PORT=${MYSQL_PORT:-3306}" >> /etc/cron.d/mysql_sync_cron
 
 # Ajouter les tâches cron
 # Service FTP : toutes les 15 minutes (0, 15, 30, 45)
-echo "*/5 * * * * root cd /app && /usr/local/bin/python /app/ftp_log_service.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/ftp_log_cron
+echo "0 4 * * * root cd /app && /usr/local/bin/python /app/ftp_log_service.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/ftp_log_cron
 
-# Service MySQL : toutes les 15 minutes avec un décalage de 2 minutes (2, 17, 32, 47)
-echo "2,17,32,47 * * * * root cd /app && /usr/local/bin/python /app/mysql_sync_service.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/mysql_sync_cron
+# Service MySQL : tous les jours à 9h et 14h
+echo "0 9,14 * * * root cd /app && /usr/local/bin/python /app/mysql_sync_service.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/mysql_sync_cron
 
 # Donner les bonnes permissions
 chmod 0644 /etc/cron.d/ftp_log_cron

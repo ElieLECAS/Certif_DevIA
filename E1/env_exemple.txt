@@ -18,6 +18,5 @@ MYSQL_USER=fenetre_user
 MYSQL_PASSWORD=Azerty123
 MYSQL_ROOT_PASSWORD=Azerty123
 
-# Configuration de la synchronisation
-SYNC_INTERVAL=3600  # Synchronisation toutes les heures
+
 DELETE_AFTER_SYNC=false  # Ne pas supprimer les fichiers après traitement
