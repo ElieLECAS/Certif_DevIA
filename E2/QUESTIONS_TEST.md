@@ -1,6 +1,6 @@
 # Questions de Test pour la Base de Données Sakila
 
-Ce document liste différentes questions que vous pouvez utiliser pour tester la base de données Sakila et le système de génération de requêtes SQL.
+Ce document liste différentes questions que vous pouvez utiliser pour tester le service Vanna ai sur la base de données Sakila.
 
 ## 🎬 Questions sur les Films
 

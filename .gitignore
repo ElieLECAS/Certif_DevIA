@@ -7,7 +7,7 @@ __pycache__/
 
 # C extensions
 *.so
-
+E2/*/
 # Distribution / packaging
 .Python
 build/
@@ -154,7 +154,6 @@ Thumbs.db
 *.pid
 
 # Base de données
-*.db
 *.sqlite
 *.sqlite3
 
