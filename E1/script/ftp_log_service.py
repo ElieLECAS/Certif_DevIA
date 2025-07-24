@@ -1,19 +1,29 @@
 #!/usr/bin/env python3
 """
-Service pour traiter les fichiers LOG depuis un serveur FTP
+Service pour traiter les fichiers LOG depuis un dossier partagé
 et les sauvegarder dans une base de données PostgreSQL.
 
 Ce service fait les choses suivantes:
-1. Se connecte au serveur FTP
-2. Télécharge les fichiers LOG depuis différents dossiers
+1. Initialise automatiquement la structure de dossiers nécessaire
+2. Lit les fichiers LOG depuis le dossier logs partagé (SFTP accessible)
 3. Analyse le contenu des fichiers LOG
 4. Sauvegarde les données dans PostgreSQL
-5. Supprime les fichiers traités du FTP
+5. Supprime les fichiers traités du dossier (optionnel)
+
+Structure de dossiers attendue:
+/app/logs/
+├── DEM12/     # Machines DEM12
+├── DEMALU/    # Machines DEMALU
+└── SU12/      # Machines SU12
+
+Utilisation:
+- python ftp_log_service.py        # Traitement normal
+- python ftp_log_service.py init   # Initialisation structure seulement
 """
 
 import os
 import re
-import ftplib
+import glob
 from datetime import datetime, timedelta
 import psycopg2
 from decimal import Decimal
@@ -31,12 +41,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class FTPLogService:
+class LogService:
     """
-    Classe principale qui gère tout le processus de traitement des logs FTP.
+    Classe principale qui gère tout le processus de traitement des logs locaux.
     
     Cette classe fait le lien entre:
-    - Le serveur FTP (où sont stockés les fichiers LOG)
+    - Le dossier logs partagé (où sont stockés les fichiers LOG)
     - La base de données PostgreSQL (où on sauvegarde les données)
     """
     
@@ -45,10 +55,8 @@ class FTPLogService:
         Initialise le service avec toutes les configurations nécessaires.
         Les valeurs par défaut peuvent être surchargées par des variables d'environnement.
         """
-        # Configuration pour se connecter au serveur FTP
-        self.ftp_host = os.getenv('FTP_HOST')
-        self.ftp_user = os.getenv('FTP_USER')
-        self.ftp_pass = os.getenv('FTP_PASS')
+        # Configuration du dossier de logs (partagé avec SFTP)
+        self.logs_directory = os.getenv('LOGS_DIRECTORY', '/app/logs')
         
         # Configuration pour se connecter à la base de données
         self.db_host = os.getenv('POSTGRES_HOST')
@@ -56,18 +64,17 @@ class FTPLogService:
         self.db_user = os.getenv('POSTGRES_USER')
         self.db_pass = os.getenv('POSTGRES_PASSWORD')
         
-        # Dictionnaire qui fait le lien entre les noms de dossiers FTP et les types de machines
-        # Clé = nom du dossier sur le FTP, Valeur = type de machine
+        # Dictionnaire qui fait le lien entre les noms de dossiers et les types de machines
+        # Clé = nom du dossier dans logs, Valeur = type de machine
         self.cu_directories = {
-            'DEM12 (PVC)': 'DEM12',
-            'DEMALU (ALU)': 'DEMALU', 
-            'SU12 (HYBRIDE)': 'SU12'
+            'DEM12': 'DEM12',
+            'DEMALU': 'DEMALU', 
+            'SU12': 'SU12'
         }
         
         # Variables pour stocker les connexions (initialisées à None)
         self.conn = None  # Connexion à la base de données
         self.cur = None   # Curseur pour exécuter les requêtes SQL
-        self.ftp = None   # Connexion au serveur FTP
 
     def connect_db(self):
         """
@@ -209,49 +216,78 @@ class FTPLogService:
             logger.error(f"❌ Erreur lors de la création des tables: {e}")
             return False
 
-    def connect_ftp(self):
+    def create_logs_structure(self):
         """
-        Se connecte au serveur FTP.
-        
-        Returns:
-            bool: True si la connexion réussit, False sinon
+        Crée la structure de dossiers nécessaire pour le traitement des logs.
         """
         try:
-            logger.info("Tentative de connexion au serveur FTP...")
+            logger.info("🚀 Initialisation de la structure de dossiers logs")
             
-            # Créer la connexion FTP
-            self.ftp = ftplib.FTP(self.ftp_host)
+            # Créer le dossier principal s'il n'existe pas
+            if not os.path.exists(self.logs_directory):
+                os.makedirs(self.logs_directory)
+                logger.info(f"✅ Dossier principal créé: {self.logs_directory}")
+            else:
+                logger.info(f"✅ Dossier principal existant: {self.logs_directory}")
             
-            # Se connecter avec les identifiants
-            self.ftp.login(self.ftp_user, self.ftp_pass)
+            # Créer chaque sous-dossier requis
+            for directory_name in self.cu_directories.keys():
+                directory_path = os.path.join(self.logs_directory, directory_name)
+                
+                if not os.path.exists(directory_path):
+                    os.makedirs(directory_path)
+                    logger.info(f"✅ Dossier créé: {directory_name}")
+                else:
+                    logger.info(f"✅ Dossier existant: {directory_name}")
             
-            logger.info("✅ Connexion FTP réussie")
+            logger.info("🎉 Structure de dossiers initialisée avec succès!")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Erreur lors de la connexion FTP: {e}")
-            self.ftp = None
+            logger.error(f"❌ Erreur lors de l'initialisation: {e}")
             return False
 
-    def get_cu_directories_from_ftp(self, ftp):
+    def check_logs_directory(self):
         """
-        Récupère la liste des dossiers de centres d'usinage disponibles sur le FTP.
+        Vérifie que le dossier de logs existe et crée la structure si nécessaire.
         
-        Args:
-            ftp: Connexion FTP active
+        Returns:
+            bool: True si le dossier existe, False sinon
+        """
+        try:
+            logger.info(f"Vérification du dossier de logs: {self.logs_directory}")
             
+            # Créer la structure de dossiers d'abord
+            if not self.create_logs_structure():
+                return False
+            
+            if os.path.exists(self.logs_directory) and os.path.isdir(self.logs_directory):
+                logger.info("✅ Dossier de logs accessible")
+                return True
+            else:
+                logger.error(f"❌ Dossier de logs non trouvé: {self.logs_directory}")
+                return False
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la vérification du dossier de logs: {e}")
+            return False
+
+    def get_cu_directories_from_logs(self):
+        """
+        Récupère la liste des dossiers de centres d'usinage disponibles dans le dossier logs.
+        
         Returns:
             list: Liste des noms de dossiers trouvés
         """
         try:
-            if not ftp:
-                logger.error("❌ Pas de connexion FTP active")
-                return []
-            
             logger.info("Recherche des dossiers de centres d'usinage...")
             
-            # Récupérer tous les dossiers à la racine du FTP
-            all_dirs = ftp.nlst()
+            # Récupérer tous les dossiers dans le répertoire logs
+            all_dirs = []
+            if os.path.exists(self.logs_directory):
+                all_dirs = [d for d in os.listdir(self.logs_directory) 
+                           if os.path.isdir(os.path.join(self.logs_directory, d))]
+            
             cu_dirs = []
             
             # Vérifier quels dossiers correspondent à nos centres d'usinage configurés
@@ -264,7 +300,7 @@ class FTPLogService:
             # Afficher un avertissement si aucun dossier n'est trouvé
             if not cu_dirs:
                 logger.warning("⚠️ Aucun dossier de centre d'usinage trouvé")
-                logger.info(f"Dossiers disponibles sur le FTP: {all_dirs}")
+                logger.info(f"Dossiers disponibles: {all_dirs}")
                 logger.info(f"Dossiers attendus: {list(self.cu_directories.keys())}")
             
             return cu_dirs
@@ -273,12 +309,11 @@ class FTPLogService:
             logger.error(f"❌ Erreur lors de la récupération des dossiers: {e}")
             return []
 
-    def get_log_files_from_directory(self, ftp, directory):
+    def get_log_files_from_directory(self, directory):
         """
         Récupère la liste des fichiers LOG dans un dossier spécifique.
         
         Args:
-            ftp: Connexion FTP active
             directory: Nom du dossier à explorer
             
         Returns:
@@ -287,88 +322,66 @@ class FTPLogService:
         try:
             logger.info(f"Recherche des fichiers LOG dans le dossier: {directory}")
             
-            # S'assurer qu'on est à la racine du FTP
-            ftp.cwd('/')
+            # Construire le chemin complet du dossier
+            directory_path = os.path.join(self.logs_directory, directory)
             
-            # Naviguer dans le dossier spécifique
-            ftp.cwd(directory)
+            if not os.path.exists(directory_path):
+                logger.warning(f"⚠️ Dossier non trouvé: {directory_path}")
+                return []
             
-            # Récupérer tous les fichiers du dossier
-            files = ftp.nlst()
-            
-            # Filtrer pour ne garder que les fichiers qui se terminent par .LOG
-            log_files = [f for f in files if f.endswith('.LOG')]
-            
-            # Revenir à la racine pour éviter les problèmes
-            ftp.cwd('/')
+            # Récupérer tous les fichiers qui se terminent par .LOG
+            log_files = []
+            for file in os.listdir(directory_path):
+                if file.endswith('.LOG') and os.path.isfile(os.path.join(directory_path, file)):
+                    log_files.append(file)
             
             logger.info(f"✅ Trouvé {len(log_files)} fichiers LOG dans {directory}")
             return log_files
             
         except Exception as e:
             logger.error(f"❌ Erreur lors de la récupération des fichiers de {directory}: {e}")
-            # En cas d'erreur, toujours essayer de revenir à la racine
-            try:
-                ftp.cwd('/')
-            except:
-                pass
             return []
 
-    def download_log_file_from_directory(self, ftp, directory, filename):
+    def read_log_file_from_directory(self, directory, filename):
         """
-        Télécharge un fichier LOG depuis un dossier spécifique du FTP.
+        Lit un fichier LOG depuis un dossier spécifique.
         
         Args:
-            ftp: Connexion FTP active
             directory: Nom du dossier contenant le fichier
-            filename: Nom du fichier à télécharger
+            filename: Nom du fichier à lire
             
         Returns:
             str: Contenu du fichier LOG ou None si erreur
         """
         try:
-            logger.info(f"Téléchargement du fichier: {directory}/{filename}")
+            logger.info(f"Lecture du fichier: {directory}/{filename}")
             
-            # S'assurer qu'on est à la racine du FTP
-            ftp.cwd('/')
+            # Construire le chemin complet du fichier
+            file_path = os.path.join(self.logs_directory, directory, filename)
             
-            # Naviguer dans le dossier contenant le fichier
-            ftp.cwd(directory)
+            if not os.path.exists(file_path):
+                logger.error(f"❌ Fichier non trouvé: {file_path}")
+                return None
             
-            # Préparer un conteneur pour recevoir les données du fichier
-            log_content_bytes = bytearray()
-            
-            def handle_binary(data):
-                """Fonction appelée pour chaque bloc de données reçu"""
-                log_content_bytes.extend(data)
-            
-            # Télécharger le fichier en mode binaire pour éviter les problèmes d'encodage
-            ftp.retrbinary(f'RETR {filename}', handle_binary)
+            # Lire le fichier en mode binaire puis décoder
+            with open(file_path, 'rb') as file:
+                log_content_bytes = file.read()
             
             # Convertir les bytes en texte (utiliser latin-1 qui accepte tous les caractères)
             log_content = log_content_bytes.decode('latin-1')
             
-            # Revenir à la racine
-            ftp.cwd('/')
-            
-            logger.info(f"✅ Fichier téléchargé: {len(log_content)} caractères")
+            logger.info(f"✅ Fichier lu: {len(log_content)} caractères")
             return log_content
             
         except Exception as e:
-            logger.error(f"❌ Erreur lors du téléchargement de {directory}/{filename}: {e}")
-            # En cas d'erreur, toujours essayer de revenir à la racine
-            try:
-                ftp.cwd('/')
-            except:
-                pass
+            logger.error(f"❌ Erreur lors de la lecture de {directory}/{filename}: {e}")
             return None
 
-    def delete_log_file_from_directory(self, ftp, directory, filename):
+    def delete_log_file_from_directory(self, directory, filename):
         """
-        Supprime un fichier LOG d'un dossier spécifique du FTP.
+        Supprime un fichier LOG d'un dossier spécifique.
         
         Args:
-            ftp: Connexion FTP active
             directory: Nom du dossier contenant le fichier
             filename: Nom du fichier à supprimer
             
@@ -378,28 +391,21 @@ class FTPLogService:
         try:
             logger.info(f"Suppression du fichier: {directory}/{filename}")
             
-            # S'assurer qu'on est à la racine du FTP
-            ftp.cwd('/')
+            # Construire le chemin complet du fichier
+            file_path = os.path.join(self.logs_directory, directory, filename)
             
-            # Naviguer dans le dossier contenant le fichier
-            ftp.cwd(directory)
+            if not os.path.exists(file_path):
+                logger.warning(f"⚠️ Fichier non trouvé pour suppression: {file_path}")
+                return False
             
             # Supprimer le fichier
-            ftp.delete(filename)
+            os.remove(file_path)
             
-            # Revenir à la racine
-            ftp.cwd('/')
-            
-            logger.info(f"✅ Fichier supprimé du FTP: {directory}/{filename}")
+            logger.info(f"✅ Fichier supprimé: {directory}/{filename}")
             return True
             
         except Exception as e:
             logger.error(f"❌ Erreur lors de la suppression de {directory}/{filename}: {e}")
-            # En cas d'erreur, toujours essayer de revenir à la racine
-            try:
-                ftp.cwd('/')
-            except:
-                pass
             return False
 
     def parse_log_content(self, log_content, filename):
@@ -844,40 +850,42 @@ class FTPLogService:
 
     def process_all_logs(self, delete_after_processing=True):
         """
-        Fonction principale qui traite tous les fichiers LOG du FTP.
+        Fonction principale qui traite tous les fichiers LOG du dossier partagé.
         
         Cette fonction:
-        1. Se connecte à la base de données et au FTP
-        2. Crée les tables nécessaires
-        3. Explore tous les dossiers de centres d'usinage
-        4. Traite chaque fichier LOG trouvé
-        5. Supprime les fichiers traités (optionnel)
+        1. Se connecte à la base de données
+        2. Vérifie l'accès au dossier logs
+        3. Crée les tables nécessaires
+        4. Explore tous les dossiers de centres d'usinage
+        5. Traite chaque fichier LOG trouvé
+        6. Supprime les fichiers traités (optionnel)
         
         Args:
-            delete_after_processing: Si True, supprime les fichiers du FTP après traitement
+            delete_after_processing: Si True, supprime les fichiers après traitement
             
         Returns:
             bool: True si tout s'est bien passé, False s'il y a eu des erreurs
         """
         try:
-            logger.info("🚀 DÉBUT DU TRAITEMENT DE TOUS LES LOGS FTP")
+            logger.info("🚀 DÉBUT DU TRAITEMENT DE TOUS LES LOGS")
             
-            # === ÉTAPE 1: ÉTABLIR LES CONNEXIONS ===
+            # === ÉTAPE 1: ÉTABLIR LA CONNEXION BASE DE DONNÉES ===
             if not self.connect_db():
                 logger.error("❌ Impossible de se connecter à la base de données")
                 return False
                 
-            if not self.connect_ftp():
-                logger.error("❌ Impossible de se connecter au FTP")
+            # === ÉTAPE 2: VÉRIFIER L'ACCÈS AU DOSSIER LOGS ===
+            if not self.check_logs_directory():
+                logger.error("❌ Impossible d'accéder au dossier de logs")
                 return False
             
-            # === ÉTAPE 2: CRÉER LES TABLES ===
+            # === ÉTAPE 3: CRÉER LES TABLES ===
             if not self.create_tables():
                 logger.error("❌ Impossible de créer les tables")
                 return False
             
-            # === ÉTAPE 3: RÉCUPÉRER LES DOSSIERS DE CENTRES D'USINAGE ===
-            cu_directories = self.get_cu_directories_from_ftp(self.ftp)
+            # === ÉTAPE 4: RÉCUPÉRER LES DOSSIERS DE CENTRES D'USINAGE ===
+            cu_directories = self.get_cu_directories_from_logs()
             
             if not cu_directories:
                 logger.error("❌ Aucun dossier de centre d'usinage trouvé")
@@ -887,13 +895,13 @@ class FTPLogService:
             total_processed = 0
             total_errors = 0
             
-            # === ÉTAPE 4: TRAITER CHAQUE DOSSIER ===
+            # === ÉTAPE 5: TRAITER CHAQUE DOSSIER ===
             for directory in cu_directories:
                 cu_type = self.cu_directories[directory]
                 logger.info(f"\n📁 === TRAITEMENT DU DOSSIER {directory} (Type: {cu_type}) ===")
                 
                 # Récupérer tous les fichiers LOG de ce dossier
-                log_files = self.get_log_files_from_directory(self.ftp, directory)
+                log_files = self.get_log_files_from_directory(directory)
                 
                 if not log_files:
                     logger.warning(f"⚠️ Aucun fichier LOG trouvé dans {directory}")
@@ -903,15 +911,15 @@ class FTPLogService:
                 processed_count = 0
                 error_count = 0
                 
-                # === ÉTAPE 5: TRAITER CHAQUE FICHIER LOG ===
+                # === ÉTAPE 6: TRAITER CHAQUE FICHIER LOG ===
                 for filename in log_files:
                     try:
                         logger.info(f"📄 Traitement de {directory}/{filename}...")
                         
-                        # Télécharger le fichier depuis le FTP
-                        log_content = self.download_log_file_from_directory(self.ftp, directory, filename)
+                        # Lire le fichier depuis le dossier local
+                        log_content = self.read_log_file_from_directory(directory, filename)
                         if not log_content:
-                            logger.error(f"❌ Échec du téléchargement de {filename}")
+                            logger.error(f"❌ Échec de la lecture de {filename}")
                             error_count += 1
                             continue
                         
@@ -933,12 +941,12 @@ class FTPLogService:
                         if self.save_to_database(results, cu_type, filename, directory):
                             logger.info(f"✅ {directory}/{filename} traité avec succès")
                             
-                            # Supprimer le fichier du FTP si demandé
+                            # Supprimer le fichier local si demandé
                             if delete_after_processing:
-                                if self.delete_log_file_from_directory(self.ftp, directory, filename):
-                                    logger.info(f"🗑️ Fichier supprimé du FTP")
+                                if self.delete_log_file_from_directory(directory, filename):
+                                    logger.info(f"🗑️ Fichier supprimé")
                                 else:
-                                    logger.warning(f"⚠️ Fichier traité mais non supprimé du FTP")
+                                    logger.warning(f"⚠️ Fichier traité mais non supprimé")
                             
                             processed_count += 1
                         else:
@@ -976,14 +984,6 @@ class FTPLogService:
         """
         logger.info("🔌 Fermeture des connexions...")
         
-        # Fermer la connexion FTP
-        if self.ftp:
-            try:
-                self.ftp.quit()
-                logger.info("✅ Connexion FTP fermée")
-            except:
-                logger.warning("⚠️ Erreur lors de la fermeture FTP")
-        
         # Fermer le curseur de base de données
         if self.cur:
             try:
@@ -1005,12 +1005,29 @@ def main():
     """
     Fonction principale qui peut être appelée directement.
     Utile pour tester le service ou l'exécuter manuellement.
+    
+    Arguments en ligne de commande:
+    - init : Initialise seulement la structure de dossiers
+    - process : Traite les logs (par défaut)
     """
-    logger.info("🎬 Démarrage du service FTP Log")
+    import sys
+    
+    logger.info("🎬 Démarrage du service de traitement des logs")
     
     # Créer une instance du service
-    service = FTPLogService()
+    service = LogService()
     
+    # Vérifier les arguments de ligne de commande
+    if len(sys.argv) > 1 and sys.argv[1] == 'init':
+        # Mode initialisation seulement
+        logger.info("Mode initialisation demandé")
+        if service.create_logs_structure():
+            logger.info("✨ Initialisation terminée avec succès!")
+        else:
+            logger.error("💥 Initialisation terminée avec des erreurs!")
+        return
+    
+    # Mode traitement normal (par défaut)
     # Lire la configuration depuis les variables d'environnement
     delete_after_sync = os.getenv('DELETE_AFTER_SYNC', 'false').lower() == 'true'
     

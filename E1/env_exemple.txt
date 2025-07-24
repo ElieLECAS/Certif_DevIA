@@ -1,13 +1,9 @@
 # Configuration JWT
 SECRET_KEY=09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7
 
-# Configuration FTP
-FTP_USER=ftp
-FTP_USER=SimplonFTP
-FTP_PASS=Azerty123
-PASV_ADDRESS=0.0.0.0
-PASV_MIN_PORT=21000
-PASV_MAX_PORT=21010
+# Configuration SFTP
+SFTP_USER=sftp_user:password123
+SFTP_PORT=22
 
 # Configuration PostgreSQL
 POSTGRES_HOST=db

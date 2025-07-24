@@ -1,21 +1,43 @@
 version: "3.9"
 
 services:
-    ftp:
-        image: fauria/vsftpd
-        container_name: ftp_server
-        ports:
-            - "21:21"
-            - "21000-21010:21000-21010"
-        environment:
-            - FTP_USER=${FTP_USER}
-            - FTP_PASS=${FTP_PASS}
-            - PASV_ADDRESS=${PASV_ADDRESS}
-            - PASV_MIN_PORT=${PASV_MIN_PORT}
-            - PASV_MAX_PORT=${PASV_MAX_PORT}
+    sftp:
+        image: atmoz/sftp
+        container_name: sftp-server
         volumes:
-            - ./logs:/home/vsftpd/${FTP_USER}
+            - ./logs:/home/sftp_user/logs
+            - sftp_ssh_keys:/etc/ssh
+            - sftp_user_keys:/home/sftp_user/.ssh
+        ports:
+            - "${SFTP_PORT}:22"
+        environment:
+            - SFTP_USERS=${SFTP_USER}:1000
         restart: unless-stopped
+        command: >
+            sh -c "
+            mkdir -p /home/sftp_user/logs/DEM12 &&
+            mkdir -p /home/sftp_user/logs/DEMALU &&
+            mkdir -p /home/sftp_user/logs/SU12 &&
+            mkdir -p /home/sftp_user/.ssh &&
+            chown -R sftp_user /home/sftp_user/logs &&
+            chown -R sftp_user /home/sftp_user/.ssh &&
+            chmod 700 /home/sftp_user/.ssh &&
+            touch /home/sftp_user/.ssh/authorized_keys &&
+            chown sftp_user /home/sftp_user/.ssh/authorized_keys &&
+            chmod 600 /home/sftp_user/.ssh/authorized_keys &&
+            if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
+                ssh-keygen -A
+            fi &&
+            /entrypoint
+            "
+        deploy:
+            resources:
+                limits:
+                    cpus: "0.5"
+                    memory: 512M
+                reservations:
+                    cpus: "0.1"
+                    memory: 256M
 
     db:
         image: postgres:15
@@ -90,10 +112,8 @@ services:
             - MYSQL_DB=db_commandes
             - MYSQL_USER=fenetre_user
             - MYSQL_PASSWORD=password
-            # Configuration FTP
-            - FTP_HOST=ftp
-            - FTP_USER=${FTP_USER}
-            - FTP_PASS=${FTP_PASS}
+            # Configuration SFTP
+            - FTP_HOST=sftp-server
             # Configuration de la synchronisation
             - DELETE_AFTER_SYNC=${DELETE_AFTER_SYNC:-false} # Supprimer les fichiers après traitement
         volumes:
@@ -122,3 +142,5 @@ services:
 volumes:
     pgdata:
     mysql_data:
+    sftp_ssh_keys:
+    sftp_user_keys:
