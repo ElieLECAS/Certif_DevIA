@@ -495,7 +495,7 @@ class LogService:
             logger.error(f"❌ Erreur lors de l'analyse de {filename}: {e}")
             return []
 
-    def analyze_machine_performance(self, data, log_file_name, cu_type):
+    def analyze_machine_performance(self, data, log_file_name, cu_type, directory):
         """
         Analyse les performances d'une machine à partir des événements du log.
         
@@ -509,6 +509,7 @@ class LogService:
             data: Liste des événements parsés
             log_file_name: Nom du fichier LOG
             cu_type: Type de centre d'usinage (PVC, ALU, HYBRIDE)
+            directory: Nom du dossier (machine) contenant le fichier
             
         Returns:
             dict: Dictionnaire contenant toutes les métriques calculées
@@ -522,8 +523,8 @@ class LogService:
         # Extraire la date du premier événement
         log_date = data[0]["Timestamp"].date()
         
-        # Créer un identifiant unique pour ce centre d'usinage
-        cu_id = f"{cu_type}_{os.path.splitext(log_file_name)[0]}"
+        # Créer un identifiant unique pour ce centre d'usinage basé sur le dossier (machine)
+        cu_id = directory
         
         # === ANALYSE DES PIÈCES PRODUITES ===
         # Chercher tous les événements "StukUitgevoerd" (pièce terminée)
@@ -709,8 +710,8 @@ class LogService:
         try:
             logger.info(f"Sauvegarde des données en base pour {cu_type}")
             
-            # Créer un nom unique pour ce centre d'usinage
-            cu_name = f"{cu_type}_{os.path.splitext(log_file_name)[0]}"
+            # Créer un nom unique pour ce centre d'usinage basé sur le dossier (machine)
+            cu_name = directory  # Le nom du dossier correspond directement à la machine
             
             # === ÉTAPE 1: CRÉER OU METTRE À JOUR LE CENTRE D'USINAGE ===
             # Approche alternative : vérifier s'il existe déjà, sinon l'insérer
@@ -940,7 +941,7 @@ class LogService:
                             continue
                         
                         # Calculer les performances de la machine
-                        results = self.analyze_machine_performance(data, filename, cu_type)
+                        results = self.analyze_machine_performance(data, filename, cu_type, directory)
                         if not results:
                             logger.error(f"❌ Échec du calcul des performances pour {filename}")
                             error_count += 1
