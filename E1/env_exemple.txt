@@ -12,10 +12,11 @@ POSTGRES_USER=admin
 POSTGRES_PASSWORD=postgres
 POSTGRES_PORT=5432
 
+# Configuration MySQL
 MYSQL_DB=fenetre_db 
 MYSQL_USER=fenetre_user
 MYSQL_PASSWORD=Azerty123
 MYSQL_ROOT_PASSWORD=Azerty123
 
-
-DELETE_AFTER_SYNC=false  # Ne pas supprimer les fichiers après traitement
+# Configuration de la synchronisation
+DELETE_AFTER_SYNC=false

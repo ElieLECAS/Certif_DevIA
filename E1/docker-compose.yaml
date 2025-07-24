@@ -117,7 +117,6 @@ services:
             # Configuration de la synchronisation
             - DELETE_AFTER_SYNC=${DELETE_AFTER_SYNC:-false} # Supprimer les fichiers après traitement
         volumes:
-            - ./script:/app
             - ./logs:/app/logs
         restart: unless-stopped
 

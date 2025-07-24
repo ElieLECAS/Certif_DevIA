@@ -8,7 +8,7 @@ echo "POSTGRES_HOST=${POSTGRES_HOST}" > /etc/cron.d/log_processing_cron
 echo "POSTGRES_DB=${POSTGRES_DB}" >> /etc/cron.d/log_processing_cron
 echo "POSTGRES_USER=${POSTGRES_USER}" >> /etc/cron.d/log_processing_cron
 echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" >> /etc/cron.d/log_processing_cron
-echo "LOGS_DIRECTORY=${LOGS_DIRECTORY:-/app/logs}" >> /etc/cron.d/log_processing_cron
+echo "LOGS_DIRECTORY=${LOGS_DIRECTORY}" >> /etc/cron.d/log_processing_cron
 echo "DELETE_AFTER_SYNC=${DELETE_AFTER_SYNC}" >> /etc/cron.d/log_processing_cron
 
 # Créer le fichier crontab avec les variables d'environnement pour MySQL

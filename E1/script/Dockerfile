@@ -28,5 +28,8 @@ RUN chmod +x /start.sh
 # Créer le dossier pour les fichiers cron
 RUN mkdir -p /etc/cron.d
 
+# Créer le répertoire pour les logs de synchronisation MySQL
+RUN mkdir -p /app/sync_logs
+
 CMD ["/start.sh"]
 # CMD ["python", "mysql_sync_service.py"]
