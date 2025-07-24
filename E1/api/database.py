@@ -16,7 +16,15 @@ DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
 engine = create_engine(DATABASE_URL, echo=True)
 
 def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
+    """
+    Les tables de production sont créées par le script d'extraction des logs (ftp_log_service.py).
+    Cette fonction crée uniquement la table user nécessaire pour l'authentification de l'API.
+    """
+    # Importer seulement le modèle User pour créer sa table
+    from auth.models import User
+    
+    # Créer uniquement la table user
+    User.metadata.create_all(engine)
 
 def get_session() -> Generator[Session, None, None]:
     with Session(engine) as session:

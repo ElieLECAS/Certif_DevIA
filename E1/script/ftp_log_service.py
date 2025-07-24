@@ -722,8 +722,8 @@ class LogService:
             else:
                 # Créer un nouveau centre
                 self.cur.execute("""
-                    INSERT INTO centre_usinage (nom, type_cu, description, actif)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO centre_usinage (nom, type_cu, description, actif, date_creation)
+                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
                     RETURNING id;
                 """, (cu_name, cu_type, f'Centre d\'usinage {cu_type} - {directory}', True))
                 centre_usinage_id = self.cur.fetchone()[0]
@@ -780,8 +780,8 @@ class LogService:
                         heure_premier_machine_start, heure_dernier_machine_stop, total_pieces,
                         duree_production_totale, temps_attente, temps_arret_volontaire,
                         temps_production_effectif, taux_occupation, taux_attente,
-                        taux_arret_volontaire, fichier_log_source
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        taux_arret_volontaire, fichier_log_source, date_creation
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
                     RETURNING id;
                 """, (
                     centre_usinage_id, 
@@ -812,29 +812,29 @@ class LogService:
             # === ÉTAPE 4: SAUVEGARDER LES PROFILS DE JOBS ===
             for job in results["JobDetails"]:
                 self.cur.execute("""
-                    INSERT INTO job_profil (session_id, reference, longueur, couleur, timestamp_debut)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO job_profil (session_id, reference, longueur, couleur, timestamp_debut, date_creation)
+                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
                 """, (session_id, job["Reference"], Decimal(str(job["Length"])), job["Color"], job["Timestamp"]))
             
             # === ÉTAPE 5: SAUVEGARDER LES PÉRIODES D'ATTENTE ===
             for wait in results["WaitPeriods"]:
                 self.cur.execute("""
-                    INSERT INTO periode_attente (session_id, timestamp_debut, timestamp_fin, duree_secondes)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO periode_attente (session_id, timestamp_debut, timestamp_fin, duree_secondes, date_creation)
+                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
                 """, (session_id, wait["Start"], wait["End"], int(wait["Duration"])))
             
             # === ÉTAPE 6: SAUVEGARDER LES PÉRIODES D'ARRÊT ===
             for stop in results["StopPeriods"]:
                 self.cur.execute("""
-                    INSERT INTO periode_arret (session_id, timestamp_debut, timestamp_fin, duree_secondes)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO periode_arret (session_id, timestamp_debut, timestamp_fin, duree_secondes, date_creation)
+                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
                 """, (session_id, stop["Start"], stop["End"], int(stop["Duration"])))
             
             # === ÉTAPE 7: SAUVEGARDER LES PIÈCES PRODUITES ===
             for i, piece in enumerate(results["PieceEvents"], 1):
                 self.cur.execute("""
-                    INSERT INTO piece_production (session_id, numero_piece, timestamp_production, details)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO piece_production (session_id, numero_piece, timestamp_production, details, date_creation)
+                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
                 """, (session_id, i, piece["Timestamp"], piece["Piece"]))
             
             # === ÉTAPE 8: CONFIRMER TOUTES LES MODIFICATIONS ===

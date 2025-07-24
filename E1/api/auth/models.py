@@ -10,6 +10,8 @@ class UserBase(SQLModel):
     disabled: bool = False
 
 class User(UserBase, table=True):
+    __tablename__ = "user"
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     hashed_password: str
     date_creation: datetime = Field(default_factory=datetime.utcnow)
