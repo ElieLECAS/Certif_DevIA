@@ -36,10 +36,13 @@ chmod 0644 /etc/cron.d/mysql_sync_cron
 # Démarrer le service cron
 cron
 
-# Exécuter les deux services immédiatement au démarrage, avec un délai entre eux
-(cd /app && /usr/local/bin/python /app/ftp_log_service.py >> /var/log/cron.log 2>&1) &
-sleep 90
-(cd /app && /usr/local/bin/python /app/mysql_sync_service.py >> /var/log/cron.log 2>&1) &
+# Créer les dossiers de logs s'ils n'existent pas
+mkdir -p /app/sync_logs
 
-# Afficher les logs en temps réel
-tail -f /var/log/cron.log 
+# Exécuter les deux services immédiatement au démarrage, avec un délai entre eux
+(cd /app && /usr/local/bin/python /app/ftp_log_service.py) &
+sleep 90
+(cd /app && /usr/local/bin/python /app/mysql_sync_service.py) &
+
+# Afficher les logs en temps réel (logs cron + logs des services)
+tail -f /var/log/cron.log /app/sync_logs/*.log 2>/dev/null || tail -f /var/log/cron.log 

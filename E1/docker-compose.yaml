@@ -118,6 +118,7 @@ services:
             - DELETE_AFTER_SYNC=${DELETE_AFTER_SYNC:-false} # Supprimer les fichiers après traitement
         volumes:
             - ./logs:/app/logs
+            - ./script/sync_logs:/app/sync_logs
         restart: unless-stopped
 
     api:

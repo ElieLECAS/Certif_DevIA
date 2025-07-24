@@ -34,9 +34,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration du système de logs pour voir ce qui se passe
+# Créer le dossier de logs s'il n'existe pas
+log_dir = '/app/sync_logs'
+os.makedirs(log_dir, exist_ok=True)
+
+# Configuration pour écrire dans un fichier ET afficher dans la console
 logging.basicConfig(
     level=logging.INFO, 
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(os.path.join(log_dir, 'ftp_log_service.log')),
+        logging.StreamHandler()  # Pour afficher aussi dans la console
+    ]
 )
 logger = logging.getLogger(__name__)
 
