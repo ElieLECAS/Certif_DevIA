@@ -41,7 +41,7 @@ mkdir -p /app/sync_logs
 
 # Exécuter les deux services immédiatement au démarrage, avec un délai entre eux
 (cd /app && /usr/local/bin/python /app/ftp_log_service.py) &
-sleep 90
+sleep 10
 (cd /app && /usr/local/bin/python /app/mysql_sync_service.py) &
 
 # Afficher les logs en temps réel (logs cron + logs des services)

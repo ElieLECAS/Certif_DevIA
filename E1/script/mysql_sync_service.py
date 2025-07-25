@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 import mysql.connector
 import psycopg2
+import pandas as pd
 from dotenv import load_dotenv
 
 # Configuration du logging
@@ -27,7 +28,9 @@ class MySQLSyncService:
             'user': os.getenv('MYSQL_USER'),
             'password': os.getenv('MYSQL_PASSWORD'),
             'database': os.getenv('MYSQL_DB'),
-            'port': int(os.getenv('MYSQL_PORT', '3306'))
+            'port': int(os.getenv('MYSQL_PORT', '3306')),
+            'charset': 'utf8mb4',
+            'collation': 'utf8mb4_unicode_ci'
         }
         
         # Configuration PostgreSQL
@@ -44,18 +47,16 @@ class MySQLSyncService:
     def create_postgres_table(self):
         """Crée la table PostgreSQL si elle n'existe pas"""
         create_table_query = """
-        CREATE TABLE IF NOT EXISTS commandes_volets (
-            id_commande VARCHAR(32) PRIMARY KEY,
-            numero_commande INTEGER NOT NULL,
+        CREATE TABLE IF NOT EXISTS commandes_volets_roulants (
+            id SERIAL PRIMARY KEY,
+            numero_commande VARCHAR(20) NOT NULL,
             extension VARCHAR(5),
-            statut VARCHAR(50),
-            affaire VARCHAR(100),
-            date_modification TIMESTAMP,
-            code_accessoire VARCHAR(20),
-            description_accessoire TEXT,
-            numero_operation VARCHAR(20),
-            description_operation TEXT,
-            date_synchronisation TIMESTAMP
+            status VARCHAR(50),
+            date_modification DATE,
+            coffre VARCHAR(50),
+            gestion_en_stock INTEGER DEFAULT 0,
+            date_synchronisation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(numero_commande, extension)
         );
         """
         
@@ -90,97 +91,171 @@ class MySQLSyncService:
             logger.error(f"Erreur de connexion PostgreSQL: {e}")
             raise
 
-    def debug_tables(self):
-        """Affiche le contenu des tables pour le debug"""
+    def debug_database_content(self):
+        """Fonction de debug pour diagnostiquer le contenu de la base de données"""
         try:
             mysql_conn = self.connect_mysql()
             cursor = mysql_conn.cursor(dictionary=True)
             
-            # Vérifier p_zubeh
-            logger.info("=== Contenu de p_zubeh ===")
-            cursor.execute("SELECT * FROM p_zubeh WHERE zcode LIKE 'VR%' OR zcode LIKE 'SOP%' OR zcode LIKE 'S P%'")
-            zubeh = cursor.fetchall()
-            for z in zubeh:
-                logger.info(f"p_zubeh: id={z.get('id')}, id_a_kopf={z.get('id_a_kopf')}, zcode={z.get('zcode')}")
+            logger.info("=== DEBUG: Vérification du contenu de la base de données ===")
             
-            # Vérifier a_logbuch avec les deux variantes d'encodage
-            logger.info("=== Recherche des commandes planifiées ===")
-            cursor.execute("SELECT * FROM a_logbuch WHERE notiz LIKE '%cde Planifiée%' OR notiz LIKE '%cde PlanifiÃ©e%'")
-            planifiees = cursor.fetchall()
-            for p in planifiees:
-                logger.info(f"Commande planifiée: id={p.get('id')}, id_a_kopf={p.get('id_a_kopf')}, notiz={p.get('notiz')}")
-
-            # Vérifier les jointures
-            logger.info("=== Test de la jointure complète ===")
+            # 1. Vérifier les commandes dans A_Kopf
+            logger.info("--- Commandes dans A_Kopf ---")
+            cursor.execute("SELECT AuNummer, AuAlpha, AufStatus FROM A_Kopf LIMIT 5")
+            commandes = cursor.fetchall()
+            for cmd in commandes:
+                logger.info(f"Commande: {cmd['AuNummer']}-{cmd['AuAlpha']} | Status: '{cmd['AufStatus']}'")
+            
+            # 2. Vérifier les logs dans A_Logbuch
+            logger.info("--- Logs dans A_Logbuch ---")
+            cursor.execute("SELECT ID_A_Kopf, Notiz FROM A_Logbuch LIMIT 5")
+            logs = cursor.fetchall()
+            for log in logs:
+                logger.info(f"Log pour {log['ID_A_Kopf']}: '{log['Notiz']}'")
+            
+            # 3. Vérifier les accessoires dans P_Zubeh
+            logger.info("--- Accessoires dans P_Zubeh ---")
+            cursor.execute("SELECT ID_A_Kopf, ZCode FROM P_Zubeh LIMIT 5")
+            accessoires = cursor.fetchall()
+            for acc in accessoires:
+                logger.info(f"Accessoire pour {acc['ID_A_Kopf']}: '{acc['ZCode']}'")
+            
+            # 4. Test de la requête avec différents encodages
+            logger.info("--- Test de la requête avec différents encodages ---")
+            
+            # Test 1: Requête originale
             cursor.execute("""
-                SELECT k.id, k.aunummer, l.notiz, z.zcode 
-                FROM a_kopf k 
-                JOIN a_logbuch l ON l.id_a_kopf = k.id 
-                JOIN p_zubeh z ON z.id_a_kopf = k.id 
-                WHERE (z.zcode LIKE 'VR%' OR z.zcode LIKE 'SOP%' OR z.zcode LIKE 'S P%')
-                AND (l.notiz LIKE '%cde Planifiée%' OR l.notiz LIKE '%cde PlanifiÃ©e%')
+                SELECT COUNT(*) as count FROM A_Logbuch 
+                WHERE Notiz LIKE '%cde Planifiee%'
             """)
-            jointures = cursor.fetchall()
-            for j in jointures:
-                logger.info(f"Jointure: id={j.get('id')}, aunummer={j.get('aunummer')}, notiz={j.get('notiz')}, zcode={j.get('zcode')}")
-
+            result1 = cursor.fetchone()
+            logger.info(f"Résultats avec 'cde Planifiee': {result1['count']}")
+            
+            # Test 2: Requête avec encodage différent
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM A_Logbuch 
+                WHERE Notiz LIKE '%cde PlanifiÃ©e%'
+            """)
+            result2 = cursor.fetchone()
+            logger.info(f"Résultats avec 'cde PlanifiÃ©e': {result2['count']}")
+            
+            # Test 3: Requête avec caractères spéciaux
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM A_Logbuch 
+                WHERE Notiz LIKE '%Planifi%'
+            """)
+            result3 = cursor.fetchone()
+            logger.info(f"Résultats avec 'Planifi': {result3['count']}")
+            
+            # Test 4: Voir tous les logs uniques
+            cursor.execute("""
+                SELECT DISTINCT Notiz FROM A_Logbuch 
+                WHERE Notiz IS NOT NULL
+            """)
+            logs_uniques = cursor.fetchall()
+            logger.info("--- Tous les logs uniques ---")
+            for log in logs_uniques:
+                logger.info(f"Log unique: '{log['Notiz']}'")
+            
+            # Test 5: Vérifier les statuts uniques
+            cursor.execute("""
+                SELECT DISTINCT AufStatus FROM A_Kopf 
+                WHERE AufStatus IS NOT NULL
+            """)
+            statuts = cursor.fetchall()
+            logger.info("--- Tous les statuts uniques ---")
+            for statut in statuts:
+                logger.info(f"Statut unique: '{statut['AufStatus']}'")
+            
+            # Test 6: Vérifier les codes d'accessoires
+            cursor.execute("""
+                SELECT DISTINCT ZCode FROM P_Zubeh 
+                WHERE ZCode IS NOT NULL
+            """)
+            codes = cursor.fetchall()
+            logger.info("--- Tous les codes d'accessoires uniques ---")
+            for code in codes:
+                logger.info(f"Code unique: '{code['ZCode']}'")
+            
         except Exception as e:
             logger.error(f"Erreur lors du debug: {e}")
-            logger.error(f"Exception détaillée: {str(e)}")
         finally:
             if 'cursor' in locals():
                 cursor.close()
             if 'mysql_conn' in locals():
                 mysql_conn.close()
 
-    def get_commandes_with_volets(self):
-        """Récupère les commandes avec volets depuis MySQL"""
-        # Debug des tables avant la requête principale
-        self.debug_tables()
+    def get_commandes_volets_roulants(self):
+        """
+        Récupère les commandes de volets roulants depuis MySQL en utilisant la vraie requête
+        Cette requête correspond exactement à celle utilisée dans l'entreprise
+        """
+        # Debug du contenu de la base de données
+        self.debug_database_content()
         
+        # Requête avec gestion d'encodage multiple
         query = """
-        SELECT DISTINCT
-            k.id,
-            k.aunummer as numero_commande,
-            k.aualpha as extension,
-            k.aufstatus as statut,
-            k.kommission as affaire,
-            l.datum as date_modification,
-            z.zcode as code_accessoire,
-            z.text as description_accessoire,
-            v.nummer as numero_operation,
-            v.bezeichnung as description_operation,
-            l.notiz as notiz
-        FROM a_kopf k
-        JOIN a_logbuch l ON l.id_a_kopf = k.id
-        JOIN p_zubeh z ON z.id_a_kopf = k.id
-        LEFT JOIN a_vorgang v ON v.id_a_kopf = k.id
-        WHERE (z.zcode LIKE 'VR%' OR z.zcode LIKE 'SOP%' OR z.zcode LIKE 'S P%')
-        AND (l.notiz LIKE '%cde Planifiée%' OR l.notiz LIKE '%cde PlanifiÃ©e%')
-        ORDER BY k.aunummer;
+        SELECT 
+            Cde.AuNummer as numero_commande,
+            Cde.AuAlpha as extension, 
+            Cde.AufStatus as status,
+            DATE(Logb.Datum) as date_modification,
+            a.ZCode as coffre,
+            CASE WHEN Vorgang.Nummer LIKE '%VR%' THEN 1 ELSE 0 END AS gestion_en_stock
+        FROM A_Kopf AS Cde
+        LEFT JOIN A_KopfFreie AS cf ON Cde.ID = cf.ID_A_Kopf
+        LEFT JOIN A_Logbuch AS Logb ON Cde.ID = Logb.ID_A_Kopf
+        LEFT JOIN P_Zubeh AS a ON Cde.ID = a.ID_A_Kopf
+        LEFT JOIN P_Artikel AS Paramgen ON Cde.ID = Paramgen.ID_A_Kopf
+        LEFT JOIN A_Vorgang AS Vorgang ON Cde.ID = Vorgang.ID_A_Kopf
+        WHERE 
+            Logb.Notiz LIKE '%cde Planifiee%'
+            AND (Cde.AufStatus LIKE '%Planifiee%' OR Cde.AufStatus LIKE '%lancer en prod%' OR Cde.AufStatus LIKE '%vitrage%')
+            AND (a.ZCode LIKE 'SOP%' OR a.ZCode LIKE 'S P %' OR a.ZCode LIKE 'S D %' OR a.ZCode LIKE 'S Q %' OR a.ZCode LIKE 'S T %' OR a.ZCode LIKE 'S TAB %' OR a.ZCode LIKE 'S TN %')
+        GROUP BY Cde.AuNummer, Cde.AuAlpha, Cde.AufStatus, Logb.Datum, a.ZCode, Vorgang.Nummer
+        ORDER BY Cde.AuNummer, Cde.AuAlpha
         """
         
         try:
             mysql_conn = self.connect_mysql()
             cursor = mysql_conn.cursor(dictionary=True)
             
-            # Log de la requête
-            logger.info(f"Exécution de la requête: {query}")
+            logger.info("Exécution de la requête pour récupérer les commandes de volets roulants...")
+            logger.info(f"Requête: {query}")
             
             cursor.execute(query)
             commandes = cursor.fetchall()
             
-            # Log détaillé des résultats
-            logger.info(f"Nombre total de commandes trouvées: {len(commandes)}")
-            for commande in commandes:
-                logger.info(f"Commande trouvée:")
-                logger.info(f"  - ID: {commande['id']}")
-                logger.info(f"  - Numéro: {commande['numero_commande']}")
-                logger.info(f"  - Extension: {commande['extension']}")
-                logger.info(f"  - Code accessoire: {commande['code_accessoire']}")
-                logger.info(f"  - Notiz: {commande['notiz']}")
+            logger.info(f"Nombre total de lignes trouvées: {len(commandes)}")
             
-            return commandes
+            # Convertir en DataFrame pour traitement comme dans le code original
+            if commandes:
+                df = pd.DataFrame(commandes)
+                
+                # Convertir le numéro de commande en string
+                df['numero_commande'] = df['numero_commande'].astype(str)
+                
+                # Supprimer les doublons exacts
+                df.drop_duplicates(subset=['numero_commande','extension', 'gestion_en_stock'], inplace=True)
+                
+                # Trier d'abord pour mettre les lignes avec gestion_en_stock = 1 en premier
+                df_sorted = df.sort_values(by='gestion_en_stock', ascending=False)
+                
+                # Puis supprimer les doublons en gardant la première occurrence (celle avec gestion_en_stock = 1 si elle existe)
+                df_unique = df_sorted.drop_duplicates(subset=['numero_commande', 'extension'], keep='first').reset_index(drop=True)
+                
+                logger.info(f"Nombre de commandes uniques après traitement: {len(df_unique)}")
+                
+                # Log des résultats pour debug
+                for _, row in df_unique.iterrows():
+                    logger.info(f"Commande: {row['numero_commande']}-{row['extension']} | Status: {row['status']} | Coffre: {row['coffre']} | Gestion Stock: {row['gestion_en_stock']}")
+                
+                # Convertir le DataFrame en liste de dictionnaires
+                return df_unique.to_dict('records')
+            else:
+                logger.warning("Aucune commande trouvée")
+                return []
+                
         except Exception as e:
             logger.error(f"Erreur lors de la récupération des commandes: {e}")
             raise
@@ -192,25 +267,27 @@ class MySQLSyncService:
 
     def insert_into_postgres(self, commandes):
         """Insère les commandes dans PostgreSQL"""
+        if not commandes:
+            logger.info("Aucune commande à synchroniser")
+            return
+            
         insert_query = """
-        INSERT INTO commandes_volets (
-            id_commande,
+        INSERT INTO commandes_volets_roulants (
             numero_commande,
             extension,
-            statut,
-            affaire,
+            status,
             date_modification,
-            code_accessoire,
-            description_accessoire,
-            numero_operation,
-            description_operation,
+            coffre,
+            gestion_en_stock,
             date_synchronisation
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-        ) ON CONFLICT (id_commande) 
+            %s, %s, %s, %s, %s, %s, %s
+        ) ON CONFLICT (numero_commande, extension) 
         DO UPDATE SET
-            statut = EXCLUDED.statut,
+            status = EXCLUDED.status,
             date_modification = EXCLUDED.date_modification,
+            coffre = EXCLUDED.coffre,
+            gestion_en_stock = EXCLUDED.gestion_en_stock,
             date_synchronisation = EXCLUDED.date_synchronisation;
         """
         
@@ -220,22 +297,18 @@ class MySQLSyncService:
             
             for commande in commandes:
                 values = (
-                    commande['id'],
                     commande['numero_commande'],
                     commande['extension'],
-                    commande['statut'],
-                    commande['affaire'],
+                    commande['status'],
                     commande['date_modification'],
-                    commande['code_accessoire'],
-                    commande['description_accessoire'],
-                    commande['numero_operation'],
-                    commande['description_operation'],
+                    commande['coffre'],
+                    commande['gestion_en_stock'],
                     datetime.now()
                 )
                 cursor.execute(insert_query, values)
             
             pg_conn.commit()
-            logger.info(f"Synchronisation de {len(commandes)} commandes terminée")
+            logger.info(f"Synchronisation de {len(commandes)} commandes de volets roulants terminée")
             
         except Exception as e:
             logger.error(f"Erreur lors de l'insertion dans PostgreSQL: {e}")
@@ -251,11 +324,19 @@ class MySQLSyncService:
     def sync(self):
         """Processus principal de synchronisation"""
         try:
-            logger.info("Démarrage de la synchronisation des commandes")
-            commandes = self.get_commandes_with_volets()
+            logger.info("=== Démarrage de la synchronisation des commandes de volets roulants ===")
+            
+            # Récupération des commandes
+            commandes = self.get_commandes_volets_roulants()
+            
             if commandes:
+                # Insertion en base PostgreSQL
                 self.insert_into_postgres(commandes)
-            logger.info("Synchronisation terminée avec succès")
+                
+                logger.info(f"=== Synchronisation terminée avec succès - {len(commandes)} commandes traitées ===")
+            else:
+                logger.info("=== Aucune commande à synchroniser ===")
+                
         except Exception as e:
             logger.error(f"Erreur lors de la synchronisation: {e}")
             raise
