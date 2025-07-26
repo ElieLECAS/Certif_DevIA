@@ -1,0 +1,28 @@
+{
+    "etapes_renseignements": {
+        "etape_1": {
+            "description": "Demander si le client souhaite des informations sur fenêtres, portes ou autres produits."
+        },
+        "etape_2": {
+            "description": "Propose lui les différentes gammes avec leurs noms"
+        },
+        "etape_3": {
+            "description": "Fournir des détails sur les performances des produits selon la gamme choisie."
+        },
+        "etape_4": {
+            "description": "Demander si le client souhaite des options supplémentaires pour le produit."
+        },
+        "etape_5": {
+            "description": "Fournir des informations sur les garanties et le service après-vente (SAV)."
+        },
+        "etape_6": {
+            "description": "Demander le numéro de commande si le client a besoin d'informations sur une commande spécifique."
+        },
+        "etape_7": {
+            "description": "Proposer une assistance supplémentaire ou rediriger vers un spécialiste si nécessaire."
+        },
+        "etape_8": {
+            "description": "Si la question est complexe, proposer de diriger le client vers un technicien SAV par téléphone pour un traitement plus approfondi."
+        }
+    }
+}

@@ -1,0 +1,373 @@
+{% extends "base.html" %} {% block extra_css %}
+<style>
+    .chat-layout {
+        height: calc(100vh - 120px);
+    }
+
+    .chat-container {
+        max-width: 70%;
+        flex: 1;
+    }
+
+    @media screen and (max-width: 968px) {
+        .chat-container {
+            max-width: 100%;
+        }
+    }
+
+    .image-preview {
+        margin-top: 1rem;
+    }
+
+    .image-preview img {
+        max-width: 100%;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .close-conversation-btn {
+        padding: 10px 20px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 1rem;
+        display: block;
+        width: 100%;
+        max-width: 300px;
+        margin: 1rem auto;
+    }
+
+    .input-wrapper {
+        display: flex;
+        align-items: center;
+        position: relative;
+    }
+
+    .file-upload-btn {
+        background: none;
+        border: none;
+        color: #6c757d;
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: color 0.2s;
+        position: absolute;
+        right: 60px;
+    }
+
+    .file-upload-btn:hover {
+        color: #0056b3;
+    }
+
+    /* Style pour cacher l'input file natif */
+    .hidden-file-input {
+        display: none;
+    }
+
+    /* Style pour l'aperçu d'image dans le chat */
+    .chat-image-preview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+    .chat-image-preview img {
+        max-width: 100px;
+        max-height: 100px;
+        object-fit: cover;
+        border-radius: 5px;
+    }
+
+    .chat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 1rem;
+    }
+
+    .chat-header-info {
+        display: flex;
+        align-items: center;
+        padding: 0 1rem;
+        margin-top: 2rem;
+    }
+
+    .chat-header-info h4 {
+        margin-left: 1rem;
+        margin-bottom: 0;
+    }
+</style>
+{% endblock %} {% block content %}
+<div
+    class="chat-layout"
+    {%
+    if
+    current_conversation
+    %}data-conversation-id="{{ current_conversation.id }}"
+    {%
+    endif
+    %}
+    data-conversation-status="{% if current_conversation %}{{ current_conversation.status }}{% else %}nouveau{% endif %}"
+>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="chat-header-info">
+                <h2>Assistant SAV PROFERM</h2>
+            </div>
+            <div>
+                <button id="reset-chat" class="reset-button">
+                    <i class="fas fa-redo"></i> Réinitialiser la conversation
+                </button>
+            </div>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="welcome-message">
+                <p>
+                    Je suis votre assistant virtuel pour le service après-vente.
+                    Comment puis-je vous aider aujourd'hui ?
+                </p>
+            </div>
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            {% if current_conversation and current_conversation.history %} {%
+            for message in current_conversation.history %} {% if message.role !=
+            'system' %}
+            <div
+                class="message {% if message.role == 'user' %}user{% else %}assistant{% endif %}"
+            >
+                {% if message.image_path %}
+                <img
+                    src="{{ message.image_path }}"
+                    style="
+                        max-width: 300px;
+                        margin-bottom: 10px;
+                        border-radius: 5px;
+                    "
+                />
+                <br />
+                {% endif %} {{ message.content }}
+            </div>
+            {% endif %} {% endfor %} {% endif %}
+        </div>
+
+        <div class="chat-input-container">
+            <form id="chat-form" class="chat-form">
+                <div class="input-wrapper">
+                    <textarea
+                        id="user-input"
+                        rows="1"
+                        placeholder="Posez votre question ici..."
+                        class="chat-input"
+                    ></textarea>
+                    <button
+                        type="button"
+                        id="file-upload-btn"
+                        class="file-upload-btn"
+                    >
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <input
+                        type="file"
+                        id="image-upload"
+                        multiple
+                        accept="image/*"
+                        class="hidden-file-input"
+                    />
+                    <button type="submit" class="send-button">
+                        <i class="fas fa-paper-plane"></i>
+                        <div class="loading-spinner"></div>
+                    </button>
+                </div>
+                <div id="chat-image-preview" class="chat-image-preview"></div>
+            </form>
+
+            <button id="close-conversation" class="close-conversation-btn">
+                <i class="fas fa-check-circle"></i> Clôturer la conversation
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+    const chatForm = document.getElementById("chat-form");
+    const chatInput = document.getElementById("user-input");
+    const chatMessages = document.getElementById("chat-messages");
+    const sendButton = chatForm.querySelector(".send-button");
+    const typingIndicator = chatMessages.querySelector(".typing-indicator");
+    const fileUploadBtn = document.getElementById("file-upload-btn");
+    const imageUpload = document.getElementById("image-upload");
+    const chatImagePreview = document.getElementById("chat-image-preview");
+    const closeConversationBtn = document.getElementById("close-conversation");
+    const chatLayout = document.querySelector(".chat-layout");
+
+    // Stocker l'ID de conversation actuelle
+    let currentConversationId = chatLayout.dataset.conversationId || null;
+
+    // Connecter le bouton d'upload au input file caché
+    fileUploadBtn.addEventListener("click", function () {
+        imageUpload.click();
+    });
+
+    // Ajuster automatiquement la hauteur du textarea
+    chatInput.addEventListener("input", function () {
+        this.style.height = "auto";
+        this.style.height = this.scrollHeight + "px";
+    });
+
+    // Gérer l'upload d'images
+    imageUpload.addEventListener("change", function (e) {
+        const files = Array.from(e.target.files);
+        chatImagePreview.innerHTML = "";
+
+        files.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = document.createElement("img");
+                img.src = e.target.result;
+                img.style.maxWidth = "100px";
+                img.style.maxHeight = "100px";
+                img.style.objectFit = "cover";
+                img.style.borderRadius = "5px";
+                chatImagePreview.appendChild(img);
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+
+    // Envoyer le message
+    chatForm.addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        // Ajouter le message utilisateur
+        addMessage(message, "user");
+        chatInput.value = "";
+        chatInput.style.height = "auto";
+
+        // Afficher l'indicateur de frappe
+        typingIndicator.style.display = "flex";
+
+        // Désactiver le bouton d'envoi
+        sendButton.disabled = true;
+
+        try {
+            const formData = new FormData();
+            formData.append("message", message);
+            formData.append("conversation_id", currentConversationId || "temp");
+
+            // Ajouter les images si présentes
+            const imageFiles = imageUpload.files;
+            for (let i = 0; i < imageFiles.length; i++) {
+                formData.append("images", imageFiles[i]);
+            }
+
+            const response = await fetch("/api/chat", {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                addMessage(data.response, "assistant");
+                currentConversationId = data.conversation_id;
+            } else {
+                addMessage(
+                    "Désolé, une erreur s'est produite. Veuillez réessayer.",
+                    "assistant"
+                );
+            }
+        } catch (error) {
+            console.error("Erreur:", error);
+            addMessage(
+                "Désolé, une erreur s'est produite. Veuillez réessayer.",
+                "assistant"
+            );
+        } finally {
+            typingIndicator.style.display = "none";
+            sendButton.disabled = false;
+            chatImagePreview.innerHTML = "";
+            imageUpload.value = "";
+        }
+    });
+
+    // Réinitialiser le chat
+    document
+        .getElementById("reset-chat")
+        .addEventListener("click", async function () {
+            if (
+                confirm(
+                    "Êtes-vous sûr de vouloir réinitialiser la conversation ?"
+                )
+            ) {
+                try {
+                    const response = await fetch("/api/reset_chat", {
+                        method: "POST",
+                    });
+                    const data = await response.json();
+
+                    if (data.status === "success") {
+                        chatMessages.innerHTML = `
+                        <div class="welcome-message">
+                            <p>Je suis votre assistant virtuel pour le service après-vente. Comment puis-je vous aider aujourd'hui ?</p>
+                        </div>
+                        <div class="typing-indicator">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    `;
+                        currentConversationId = data.conversation_id;
+                    }
+                } catch (error) {
+                    console.error("Erreur lors de la réinitialisation:", error);
+                }
+            }
+        });
+
+    // Clôturer la conversation
+    closeConversationBtn.addEventListener("click", async function () {
+        if (confirm("Êtes-vous sûr de vouloir clôturer cette conversation ?")) {
+            try {
+                const formData = new FormData();
+                formData.append("conversation_id", currentConversationId || "temp");
+                formData.append("summary", "Conversation clôturée par l'utilisateur");
+                
+                const response = await fetch("/api/close_conversation", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                const data = await response.json();
+
+                if (data.status === "success") {
+                    alert("Conversation clôturée avec succès !");
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error("Erreur lors de la clôture:", error);
+            }
+        }
+    });
+
+    function addMessage(content, role) {
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${role}`;
+        messageDiv.textContent = content;
+
+        // Insérer avant l'indicateur de frappe
+        chatMessages.insertBefore(messageDiv, typingIndicator);
+
+        // Faire défiler vers le bas
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+</script>
+{% endblock %}

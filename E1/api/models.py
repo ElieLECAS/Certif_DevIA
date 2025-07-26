@@ -97,6 +97,20 @@ class PieceProduction(PieceProductionBase, table=True):
     date_creation: datetime = Field(default_factory=datetime.utcnow)
     session: SessionProduction = Relationship(back_populates="pieces_production")
 
+class CommandeVoletRoulantBase(SQLModel):
+    numero_commande: str = Field(max_length=20, index=True)
+    extension: Optional[str] = Field(default=None, max_length=5)
+    status: Optional[str] = Field(default=None, max_length=50)
+    date_modification: Optional[date] = None
+    coffre: Optional[str] = Field(default=None, max_length=50)
+    gestion_en_stock: int = Field(default=0)
+    date_synchronisation: Optional[datetime] = Field(default_factory=datetime.utcnow)
+
+class CommandeVoletRoulant(CommandeVoletRoulantBase, table=True):
+    __tablename__ = "commandes_volets_roulants"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+
 # Modèles pour la création et la lecture
 class CentreUsinageCreate(CentreUsinageBase):
     pass
@@ -139,3 +153,9 @@ class PieceProductionCreate(PieceProductionBase):
 class PieceProductionRead(PieceProductionBase):
     id: int
     date_creation: datetime 
+
+class CommandeVoletRoulantCreate(CommandeVoletRoulantBase):
+    pass
+
+class CommandeVoletRoulantRead(CommandeVoletRoulantBase):
+    id: int 

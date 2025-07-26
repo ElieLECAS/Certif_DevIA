@@ -1,0 +1,12 @@
+# Configuration de la base de données
+DATABASE_URL=postgresql://postgres:password@localhost:5432/chatbot_sav
+
+# Clé secrète pour JWT
+SECRET_KEY=your-super-secret-key-change-in-production
+
+# Clé API OpenAI
+OPENAI_API_KEY=your-openai-api-key-here
+
+# Configuration de l'application
+DEBUG=True
+ENVIRONMENT=development 

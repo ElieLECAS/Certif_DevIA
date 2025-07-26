@@ -1,0 +1,191 @@
+{% extends "base.html" %} {% block extra_css %}
+<style>
+    .conversation-row {
+        cursor: pointer;
+    }
+
+    .conversation-row:hover {
+        background-color: rgba(0, 123, 255, 0.1);
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 0.25em 0.6em;
+        font-size: 75%;
+        font-weight: 700;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.25rem;
+    }
+
+    .status-nouveau {
+        color: #fff;
+        background-color: #17a2b8;
+    }
+
+    .status-en_cours {
+        color: #fff;
+        background-color: #007bff;
+    }
+
+    .status-termine {
+        color: #fff;
+        background-color: #28a745;
+    }
+
+    .filters {
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        Liste des conversations SAV ( {{ conversations|length }}
+                        )
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="filters">
+                        <a
+                            href="/conversations"
+                            class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline-primary{% endif %} mr-2"
+                            >Toutes</a
+                        >
+                        <a
+                            href="?status=nouveau"
+                            class="btn btn-sm {% if status_filter == 'nouveau' %}btn-info{% else %}btn-outline-info{% endif %} mr-2"
+                            >Nouvelles</a
+                        >
+                        <a
+                            href="?status=en_cours"
+                            class="btn btn-sm {% if status_filter == 'en_cours' %}btn-primary{% else %}btn-outline-primary{% endif %} mr-2"
+                            >En cours</a
+                        >
+                        <a
+                            href="?status=termine"
+                            class="btn btn-sm {% if status_filter == 'termine' %}btn-success{% else %}btn-outline-success{% endif %}"
+                            >Terminées</a
+                        >
+                    </div>
+
+                    {% if conversations %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Client</th>
+                                    <th>Statut</th>
+                                    <th>Créée le</th>
+                                    <th>Dernière mise à jour</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for conversation in conversations %}
+                                <tr
+                                    class="conversation-row"
+                                    data-id="{{ conversation.id }}"
+                                >
+                                    <td>{{ conversation.id }}</td>
+                                    <td>
+                                        {{ conversation.client_name or "Anonyme"
+                                        }}
+                                    </td>
+                                    <td>
+                                        <span
+                                            class="status-badge status-{{ conversation.status }}"
+                                        >
+                                            {% if conversation.status ==
+                                            'nouveau' %}Nouveau {% elif
+                                            conversation.status == 'en_cours'
+                                            %}En cours {% elif
+                                            conversation.status == 'termine'
+                                            %}Terminé {% else %}{{
+                                            conversation.status }}{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{
+                                        conversation.created_at.strftime('%d/%m/%Y
+                                        %H:%M') if conversation.created_at else
+                                        'N/A' }}
+                                    </td>
+                                    <td>
+                                        {{
+                                        conversation.updated_at.strftime('%d/%m/%Y
+                                        %H:%M') if conversation.updated_at else
+                                        'N/A' }}
+                                    </td>
+                                    <td>
+                                        <a
+                                            href="/conversation/{{ conversation.id }}"
+                                            class="btn btn-sm btn-info"
+                                        >
+                                            <i class="fas fa-eye"></i> Voir
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="details-row"
+                                    id="details-{{ conversation.id }}"
+                                    style="display: none"
+                                >
+                                    <td colspan="6">
+                                        <div class="card mt-2">
+                                            <div class="card-header bg-light">
+                                                <h5>Résumé</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <p>
+                                                    {{ conversation.summary or
+                                                    "Aucun résumé disponible" }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Aucune conversation trouvée</h5>
+                        <p class="text-muted">
+                            Aucune conversation ne correspond aux critères
+                            sélectionnés.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+    // Afficher/masquer les détails d'une conversation
+    document.querySelectorAll(".conversation-row").forEach((row) => {
+        row.addEventListener("click", function () {
+            const conversationId = this.dataset.id;
+            const detailsRow = document.getElementById(
+                `details-${conversationId}`
+            );
+
+            if (detailsRow.style.display === "none") {
+                detailsRow.style.display = "table-row";
+            } else {
+                detailsRow.style.display = "none";
+            }
+        });
+    });
+</script>
+{% endblock %}

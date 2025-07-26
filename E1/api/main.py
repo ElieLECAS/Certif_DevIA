@@ -11,7 +11,8 @@ from models import (
     JobProfil, JobProfilCreate, JobProfilRead,
     PeriodeAttente, PeriodeAttenteCreate, PeriodeAttenteRead,
     PeriodeArret, PeriodeArretCreate, PeriodeArretRead,
-    PieceProduction, PieceProductionCreate, PieceProductionRead
+    PieceProduction, PieceProductionCreate, PieceProductionRead,
+    CommandeVoletRoulant, CommandeVoletRoulantCreate, CommandeVoletRoulantRead
 )
 from auth.models import User, UserCreate, UserRead, Token
 from auth.utils import (
@@ -149,8 +150,371 @@ def read_sessions(
     sessions = session.exec(select(SessionProduction).offset(skip).limit(limit)).all()
     return sessions
 
+# CRUD routes for CommandeVoletRoulant
+@app.post("/commandes-volets/", response_model=CommandeVoletRoulantRead)
+def create_commande_volet(
+    commande: CommandeVoletRoulantCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    db_commande = CommandeVoletRoulant.from_orm(commande)
+    session.add(db_commande)
+    session.commit()
+    session.refresh(db_commande)
+    return db_commande
+
+@app.get("/commandes-volets/", response_model=List[CommandeVoletRoulantRead])
+def read_commandes_volets(
+    skip: int = 0,
+    limit: int = 100,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    commandes = session.exec(select(CommandeVoletRoulant).offset(skip).limit(limit)).all()
+    return commandes
+
+@app.get("/commandes-volets/{commande_id}", response_model=CommandeVoletRoulantRead)
+def read_commande_volet(
+    commande_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    commande = session.get(CommandeVoletRoulant, commande_id)
+    if not commande:
+        raise HTTPException(status_code=404, detail="Commande not found")
+    return commande
+
+@app.put("/commandes-volets/{commande_id}", response_model=CommandeVoletRoulantRead)
+def update_commande_volet(
+    commande_id: int,
+    commande: CommandeVoletRoulantCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    db_commande = session.get(CommandeVoletRoulant, commande_id)
+    if not db_commande:
+        raise HTTPException(status_code=404, detail="Commande not found")
+    
+    commande_data = commande.dict(exclude_unset=True)
+    for key, value in commande_data.items():
+        setattr(db_commande, key, value)
+    
+    session.add(db_commande)
+    session.commit()
+    session.refresh(db_commande)
+    return db_commande
+
+@app.delete("/commandes-volets/{commande_id}")
+def delete_commande_volet(
+    commande_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    commande = session.get(CommandeVoletRoulant, commande_id)
+    if not commande:
+        raise HTTPException(status_code=404, detail="Commande not found")
+    
+    session.delete(commande)
+    session.commit()
+    return {"ok": True}
+
+# Routes de recherche spécifiques pour les commandes de volets roulants
+@app.get("/commandes-volets/by-numero/{numero_commande}", response_model=List[CommandeVoletRoulantRead])
+def read_commandes_by_numero(
+    numero_commande: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    commandes = session.exec(
+        select(CommandeVoletRoulant).where(CommandeVoletRoulant.numero_commande == numero_commande)
+    ).all()
+    return commandes
+
+@app.get("/commandes-volets/by-status/{status}", response_model=List[CommandeVoletRoulantRead])
+def read_commandes_by_status(
+    status: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    commandes = session.exec(
+        select(CommandeVoletRoulant).where(CommandeVoletRoulant.status == status)
+    ).all()
+    return commandes
+
 # Add similar CRUD routes for JobProfil, PeriodeAttente, PeriodeArret, and PieceProduction
 # Following the same pattern as above
+
+# CRUD routes for JobProfil
+@app.post("/job-profils/", response_model=JobProfilRead)
+def create_job_profil(
+    job_profil: JobProfilCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    db_job_profil = JobProfil.from_orm(job_profil)
+    session.add(db_job_profil)
+    session.commit()
+    session.refresh(db_job_profil)
+    return db_job_profil
+
+@app.get("/job-profils/", response_model=List[JobProfilRead])
+def read_job_profils(
+    skip: int = 0,
+    limit: int = 100,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    job_profils = session.exec(select(JobProfil).offset(skip).limit(limit)).all()
+    return job_profils
+
+@app.get("/job-profils/{job_profil_id}", response_model=JobProfilRead)
+def read_job_profil(
+    job_profil_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    job_profil = session.get(JobProfil, job_profil_id)
+    if not job_profil:
+        raise HTTPException(status_code=404, detail="JobProfil not found")
+    return job_profil
+
+@app.put("/job-profils/{job_profil_id}", response_model=JobProfilRead)
+def update_job_profil(
+    job_profil_id: int,
+    job_profil: JobProfilCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    db_job_profil = session.get(JobProfil, job_profil_id)
+    if not db_job_profil:
+        raise HTTPException(status_code=404, detail="JobProfil not found")
+    
+    job_profil_data = job_profil.dict(exclude_unset=True)
+    for key, value in job_profil_data.items():
+        setattr(db_job_profil, key, value)
+    
+    session.add(db_job_profil)
+    session.commit()
+    session.refresh(db_job_profil)
+    return db_job_profil
+
+@app.delete("/job-profils/{job_profil_id}")
+def delete_job_profil(
+    job_profil_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    job_profil = session.get(JobProfil, job_profil_id)
+    if not job_profil:
+        raise HTTPException(status_code=404, detail="JobProfil not found")
+    
+    session.delete(job_profil)
+    session.commit()
+    return {"ok": True}
+
+# CRUD routes for PeriodeAttente
+@app.post("/periodes-attente/", response_model=PeriodeAttenteRead)
+def create_periode_attente(
+    periode: PeriodeAttenteCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    db_periode = PeriodeAttente.from_orm(periode)
+    session.add(db_periode)
+    session.commit()
+    session.refresh(db_periode)
+    return db_periode
+
+@app.get("/periodes-attente/", response_model=List[PeriodeAttenteRead])
+def read_periodes_attente(
+    skip: int = 0,
+    limit: int = 100,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    periodes = session.exec(select(PeriodeAttente).offset(skip).limit(limit)).all()
+    return periodes
+
+@app.get("/periodes-attente/{periode_id}", response_model=PeriodeAttenteRead)
+def read_periode_attente(
+    periode_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    periode = session.get(PeriodeAttente, periode_id)
+    if not periode:
+        raise HTTPException(status_code=404, detail="PeriodeAttente not found")
+    return periode
+
+@app.put("/periodes-attente/{periode_id}", response_model=PeriodeAttenteRead)
+def update_periode_attente(
+    periode_id: int,
+    periode: PeriodeAttenteCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    db_periode = session.get(PeriodeAttente, periode_id)
+    if not db_periode:
+        raise HTTPException(status_code=404, detail="PeriodeAttente not found")
+    
+    periode_data = periode.dict(exclude_unset=True)
+    for key, value in periode_data.items():
+        setattr(db_periode, key, value)
+    
+    session.add(db_periode)
+    session.commit()
+    session.refresh(db_periode)
+    return db_periode
+
+@app.delete("/periodes-attente/{periode_id}")
+def delete_periode_attente(
+    periode_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    periode = session.get(PeriodeAttente, periode_id)
+    if not periode:
+        raise HTTPException(status_code=404, detail="PeriodeAttente not found")
+    
+    session.delete(periode)
+    session.commit()
+    return {"ok": True}
+
+# CRUD routes for PeriodeArret
+@app.post("/periodes-arret/", response_model=PeriodeArretRead)
+def create_periode_arret(
+    periode: PeriodeArretCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    db_periode = PeriodeArret.from_orm(periode)
+    session.add(db_periode)
+    session.commit()
+    session.refresh(db_periode)
+    return db_periode
+
+@app.get("/periodes-arret/", response_model=List[PeriodeArretRead])
+def read_periodes_arret(
+    skip: int = 0,
+    limit: int = 100,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    periodes = session.exec(select(PeriodeArret).offset(skip).limit(limit)).all()
+    return periodes
+
+@app.get("/periodes-arret/{periode_id}", response_model=PeriodeArretRead)
+def read_periode_arret(
+    periode_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    periode = session.get(PeriodeArret, periode_id)
+    if not periode:
+        raise HTTPException(status_code=404, detail="PeriodeArret not found")
+    return periode
+
+@app.put("/periodes-arret/{periode_id}", response_model=PeriodeArretRead)
+def update_periode_arret(
+    periode_id: int,
+    periode: PeriodeArretCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    db_periode = session.get(PeriodeArret, periode_id)
+    if not db_periode:
+        raise HTTPException(status_code=404, detail="PeriodeArret not found")
+    
+    periode_data = periode.dict(exclude_unset=True)
+    for key, value in periode_data.items():
+        setattr(db_periode, key, value)
+    
+    session.add(db_periode)
+    session.commit()
+    session.refresh(db_periode)
+    return db_periode
+
+@app.delete("/periodes-arret/{periode_id}")
+def delete_periode_arret(
+    periode_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    periode = session.get(PeriodeArret, periode_id)
+    if not periode:
+        raise HTTPException(status_code=404, detail="PeriodeArret not found")
+    
+    session.delete(periode)
+    session.commit()
+    return {"ok": True}
+
+# CRUD routes for PieceProduction
+@app.post("/pieces-production/", response_model=PieceProductionRead)
+def create_piece_production(
+    piece: PieceProductionCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    db_piece = PieceProduction.from_orm(piece)
+    session.add(db_piece)
+    session.commit()
+    session.refresh(db_piece)
+    return db_piece
+
+@app.get("/pieces-production/", response_model=List[PieceProductionRead])
+def read_pieces_production(
+    skip: int = 0,
+    limit: int = 100,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    pieces = session.exec(select(PieceProduction).offset(skip).limit(limit)).all()
+    return pieces
+
+@app.get("/pieces-production/{piece_id}", response_model=PieceProductionRead)
+def read_piece_production(
+    piece_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    piece = session.get(PieceProduction, piece_id)
+    if not piece:
+        raise HTTPException(status_code=404, detail="PieceProduction not found")
+    return piece
+
+@app.put("/pieces-production/{piece_id}", response_model=PieceProductionRead)
+def update_piece_production(
+    piece_id: int,
+    piece: PieceProductionCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    db_piece = session.get(PieceProduction, piece_id)
+    if not db_piece:
+        raise HTTPException(status_code=404, detail="PieceProduction not found")
+    
+    piece_data = piece.dict(exclude_unset=True)
+    for key, value in piece_data.items():
+        setattr(db_piece, key, value)
+    
+    session.add(db_piece)
+    session.commit()
+    session.refresh(db_piece)
+    return db_piece
+
+@app.delete("/pieces-production/{piece_id}")
+def delete_piece_production(
+    piece_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)
+):
+    piece = session.get(PieceProduction, piece_id)
+    if not piece:
+        raise HTTPException(status_code=404, detail="PieceProduction not found")
+    
+    session.delete(piece)
+    session.commit()
+    return {"ok": True}
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,0 +1,500 @@
+{% extends "base.html" %} {% load static %} {% block extra_css %}
+<style>
+    .chat-layout {
+        height: calc(100vh - 120px);
+    }
+    
+    .chat-container {
+        max-width: 70%;
+        flex: 1;
+    }
+    
+    @media screen and (max-width: 968px) {
+        .chat-container {
+            max-width: 100%;
+        }
+    }
+    
+    .image-preview {
+        margin-top: 1rem;
+    }
+    
+    .image-preview img {
+        max-width: 100%;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .close-conversation-btn {
+        padding: 10px 20px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 1rem;
+        display: block;
+        width: 100%;
+        max-width: 300px;
+        margin: 1rem auto;
+    }
+    
+    .input-wrapper {
+        display: flex;
+        align-items: center;
+        position: relative;
+    }
+    
+    .file-upload-btn {
+        background: none;
+        border: none;
+        color: #6c757d;
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: color 0.2s;
+        position: absolute;
+        right: 60px;
+    }
+    
+    .file-upload-btn:hover {
+        color: #0056b3;
+    }
+    
+    /* Style pour cacher l'input file natif */
+    .hidden-file-input {
+        display: none;
+    }
+    
+    /* Style pour l'aperçu d'image dans le chat */
+    .chat-image-preview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    
+    .chat-image-preview img {
+        max-width: 100px;
+        max-height: 100px;
+        object-fit: cover;
+        border-radius: 5px;
+    }
+    
+    .chat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 1rem;
+    }
+    
+    .chat-header-info {
+        display: flex;
+        align-items: center;
+        padding: 0 1rem;
+        margin-top: 2rem;
+    }
+    
+    .chat-header-info h4 {
+        margin-left: 1rem;
+        margin-bottom: 0;
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="chat-layout" 
+    {% if current_conversation %}data-conversation-id="{{ current_conversation.id }}"{% endif %}
+    data-conversation-status="{% if current_conversation %}{{ current_conversation.status }}{% else %}nouveau{% endif %}">
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="chat-header-info">
+                <h2>Assistant SAV PROFERM</h2>
+            </div>
+            <div>
+                <button id="reset-chat" class="reset-button">
+                    <i class="fas fa-redo"></i> Réinitialiser la conversation
+                </button>
+            </div>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="welcome-message">
+                <!-- <h2>Assistant SAV PROFERM</h2> -->
+                <p>
+                    Je suis votre assistant virtuel pour le service après-vente. Comment
+                    puis-je vous aider aujourd'hui ?
+                </p>
+            </div>
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            {% if current_conversation and current_conversation.history %}
+                {% for message in current_conversation.history %}
+                    {% if message.role != 'system' %}
+                    <div class="message {% if message.role == 'user' %}user{% else %}assistant{% endif %}">
+                        {% if message.image_path %}
+                        <img src="{{ message.image_path }}" style="max-width: 300px; margin-bottom: 10px; border-radius: 5px;">
+                        <br>
+                        {% endif %}
+                        {{ message.content }}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </div>
+    
+        <div class="chat-input-container">
+            <form id="chat-form" class="chat-form">
+                <div class="input-wrapper">
+                    <textarea
+                        id="user-input"
+                        rows="1"
+                        placeholder="Posez votre question ici..."
+                        class="chat-input"
+                    ></textarea>
+                    <button type="button" id="file-upload-btn" class="file-upload-btn">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <input type="file" id="image-upload" multiple accept="image/*" class="hidden-file-input">
+                    <button type="submit" class="send-button">
+                        <i class="fas fa-paper-plane"></i>
+                        <div class="loading-spinner"></div>
+                    </button>
+                </div>
+                <div id="chat-image-preview" class="chat-image-preview"></div>
+                <!-- <p class="disclaimer">
+                    L'assistant utilise LangChain avec le modèle GPT-4o-mini d'OpenAI et la recherche de contexte via RAG.
+                </p> -->
+            </form>
+            
+            <button id="close-conversation" class="close-conversation-btn">
+                <i class="fas fa-check-circle"></i> Clôturer la conversation
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+    const chatForm = document.getElementById("chat-form");
+    const chatInput = document.getElementById("user-input");
+    const chatMessages = document.getElementById("chat-messages");
+    const sendButton = chatForm.querySelector(".send-button");
+    const typingIndicator = chatMessages.querySelector(".typing-indicator");
+    const fileUploadBtn = document.getElementById("file-upload-btn");
+    const imageUpload = document.getElementById("image-upload");
+    const chatImagePreview = document.getElementById("chat-image-preview");
+    const closeConversationBtn = document.getElementById("close-conversation");
+    const chatLayout = document.querySelector(".chat-layout");
+    
+    // Stocker l'ID de conversation actuelle
+    let currentConversationId = chatLayout.dataset.conversationId || null;
+    
+    // Connecter le bouton d'upload au input file caché
+    fileUploadBtn.addEventListener("click", function() {
+        imageUpload.click();
+    });
+    
+    // Ajuster automatiquement la hauteur du textarea
+    chatInput.addEventListener("input", function () {
+        this.style.height = "auto";
+        this.style.height = this.scrollHeight + "px";
+    });
+
+    // Fonction pour envoyer le message
+    async function sendMessage(message) {
+        if (!message.trim()) return;
+
+        // Désactiver le formulaire et montrer le chargement
+        sendButton.disabled = true;
+        sendButton.classList.add("loading");
+        chatInput.disabled = true;
+
+        try {
+            // Afficher le message de l'utilisateur
+            appendMessage("user", message);
+            chatInput.value = "";
+            chatInput.style.height = "auto";
+
+            typingIndicator.style.display = "block";
+
+            const response = await fetch("/openai/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie("csrftoken"),
+                },
+                body: JSON.stringify({ 
+                    message: message,
+                    conversation_id: currentConversationId,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || data.details || "Une erreur est survenue"
+                );
+            }
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            if (data.response) {
+                appendMessage("assistant", data.response);
+                typingIndicator.style.display = "none";
+                
+                // Mettre à jour l'ID de conversation si c'est une nouvelle
+                if (data.conversation_id && (!currentConversationId || currentConversationId !== data.conversation_id)) {
+                    currentConversationId = data.conversation_id;
+                    
+                    // Mettre à jour l'URL sans recharger la page
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.set('conversation_id', currentConversationId);
+                    window.history.pushState({}, '', newUrl);
+                }
+            } else {
+                throw new Error("Réponse invalide du serveur");
+            }
+        } catch (error) {
+            console.error("Erreur:", error);
+            const errorDiv = document.createElement("div");
+            errorDiv.className = "error-message";
+            errorDiv.textContent =
+                error.message ||
+                "Une erreur est survenue lors du traitement de votre demande.";
+            chatMessages.appendChild(errorDiv);
+
+            // Faire défiler jusqu'au message d'erreur
+            errorDiv.scrollIntoView({ behavior: "smooth" });
+
+            // Supprimer le message d'erreur après 5 secondes
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+
+            typingIndicator.style.display = "none";
+        } finally {
+            // Réactiver le formulaire et cacher le chargement
+            sendButton.disabled = false;
+            sendButton.classList.remove("loading");
+            chatInput.disabled = false;
+            chatInput.focus();
+            typingIndicator.style.display = "none";
+        }
+    }
+
+    // Gérer l'envoi des images
+    imageUpload.addEventListener("change", async function() {
+        if (!this.files.length) return;
+        
+        const formData = new FormData();
+        for (const file of this.files) {
+            formData.append("images", file);
+        }
+        
+        // Ajouter l'ID de conversation si disponible
+        if (currentConversationId) {
+            formData.append("conversation_id", currentConversationId);
+        }
+        
+        // Vider la prévisualisation
+        chatImagePreview.innerHTML = "";
+        
+        // Envoyer les images au serveur
+        try {
+            typingIndicator.style.display = "block";
+            
+            // Ajouter la prévisualisation des images
+            for (const file of this.files) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.createElement("img");
+                    img.src = e.target.result;
+                    img.alt = file.name;
+                    chatImagePreview.appendChild(img);
+                    
+                    // Ajouter un message dans le chat
+                    appendMessage("user", `📤 Image envoyée: ${file.name}`);
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            const response = await fetch("/openai/upload/", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": getCookie("csrftoken"),
+                },
+                body: formData,
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || "Erreur lors du téléchargement des images");
+            }
+            
+            if (data.response) {
+                appendMessage("assistant", data.response);
+                
+                // Mettre à jour l'ID de conversation si c'est une nouvelle
+                if (data.conversation_id && (!currentConversationId || currentConversationId !== data.conversation_id)) {
+                    currentConversationId = data.conversation_id;
+                    
+                    // Mettre à jour l'URL sans recharger la page
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.set('conversation_id', currentConversationId);
+                    window.history.pushState({}, '', newUrl);
+                }
+            }
+            
+        } catch (error) {
+            console.error("Erreur lors de l'envoi des images:", error);
+            const errorDiv = document.createElement("div");
+            errorDiv.className = "error-message";
+            errorDiv.textContent = error.message || "Erreur lors du téléchargement des images";
+            chatMessages.appendChild(errorDiv);
+        } finally {
+            typingIndicator.style.display = "none";
+            // Réinitialiser l'input file
+            this.value = '';
+        }
+    });
+
+    // Gérer la clôture de conversation
+    closeConversationBtn.addEventListener("click", async function() {
+        if (!currentConversationId) {
+            alert("Aucune conversation active à clôturer");
+            return;
+        }
+        
+        if (confirm("Êtes-vous sûr de vouloir clôturer cette conversation ?")) {
+            try {
+                closeConversationBtn.disabled = true;
+                closeConversationBtn.textContent = "Génération du résumé...";
+                
+                const response = await fetch("/openai/close/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": getCookie("csrftoken"),
+                    },
+                    body: JSON.stringify({ conversation_id: currentConversationId }),
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || "Erreur lors de la clôture");
+                }
+                
+                // Le résumé est stocké en BDD, afficher un message de succès
+                alert("La conversation a été clôturée avec succès.");
+                
+                // Rediriger vers une nouvelle conversation
+                window.location.href = "/openai/";
+                
+            } catch (error) {
+                console.error("Erreur lors de la clôture:", error);
+                alert("Erreur lors de la clôture de la conversation: " + error.message);
+            } finally {
+                closeConversationBtn.disabled = false;
+                closeConversationBtn.innerHTML = '<i class="fas fa-check-circle"></i> Clôturer la conversation';
+            }
+        }
+    });
+
+    // Gérer l'envoi du message via le formulaire
+    chatForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        sendMessage(chatInput.value);
+    });
+
+    // Gérer l'envoi avec la touche Entrée
+    chatInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage(this.value);
+        }
+    });
+
+    function appendMessage(sender, text) {
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${sender}`;
+        messageDiv.textContent = text;
+
+        // Insérer le message avant l'indicateur de frappe
+        typingIndicator.parentNode.insertBefore(messageDiv, typingIndicator);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== "") {
+            const cookies = document.cookie.split(";");
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === name + "=") {
+                    cookieValue = decodeURIComponent(
+                        cookie.substring(name.length + 1)
+                    );
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Faire défiler jusqu'aux derniers messages au chargement
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    // Gérer la réinitialisation du chat
+    document
+        .getElementById("reset-chat")
+        .addEventListener("click", function () {
+            if (
+                confirm(
+                    "Êtes-vous sûr de vouloir créer une nouvelle conversation ?"
+                )
+            ) {
+                const welcomeMessage =
+                    chatMessages.querySelector(".welcome-message");
+                // Garder une référence à l'indicateur de frappe
+                const typingIndicator =
+                    chatMessages.querySelector(".typing-indicator");
+                chatMessages.innerHTML = "";
+                if (welcomeMessage) {
+                    chatMessages.appendChild(welcomeMessage);
+                }
+                // Remettre l'indicateur de frappe à la fin
+                chatMessages.appendChild(typingIndicator);
+                
+                // Vider l'aperçu des images
+                chatImagePreview.innerHTML = "";
+
+                // Appel au backend pour créer une nouvelle conversation
+                fetch("/openai/reset/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": getCookie("csrftoken"),
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.conversation_id) {
+                        currentConversationId = data.conversation_id;
+                        
+                        // Mettre à jour l'URL et recharger la page
+                        window.location.href = `?conversation_id=${currentConversationId}`;
+                    }
+                })
+                .catch((error) => {
+                    console.error("Erreur lors de la réinitialisation:", error);
+                    alert("Erreur: " + error.message);
+                });
+            }
+        });
+</script>
+{% endblock %}

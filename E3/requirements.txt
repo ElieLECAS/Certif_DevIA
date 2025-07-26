@@ -1,0 +1,64 @@
+# FastAPI et serveur
+fastapi==0.104.1
+uvicorn[standard]
+
+# Base de données
+psycopg2-binary==2.9.9
+sqlalchemy
+
+# Authentification et sécurité
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# Templates et interface
+jinja2==3.1.2
+aiofiles==23.2.1
+
+# Validation des données
+pydantic[email]==2.5.0
+
+# Configuration
+python-dotenv==1.0.1
+
+# IA et LangChain (versions du projet Django)
+langchain 
+langchain-openai
+langchain-text-splitters
+langchain-community
+faiss-cpu 
+pymupdf
+
+# Data science et traitement (versions du projet Django)
+pandas==2.2.0
+numpy==1.26.4
+matplotlib
+plotly
+scikit-learn
+joblib
+catboost
+
+# Requêtes HTTP
+requests
+
+# Tests (pour le développement)
+pytest>=7.4.0
+pytest-mock>=3.11.1
+pytest-cov>=4.1.0
+
+# Recherche floue
+thefuzz
+fuzzywuzzy
+
+# Ollama (si utilisé)
+ollama==0.1.6
+
+# Migrations de base de données
+alembic==1.12.1
+
+# Redis et Celery (pour les tâches asynchrones)
+redis>=5.0.1
+celery>=5.3.4
+
+# CORS (pour les requêtes cross-origin)
+fastapi-cors==0.0.6 

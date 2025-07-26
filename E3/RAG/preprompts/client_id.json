@@ -1,0 +1,27 @@
+{
+  "client_informations": {
+    "id": 2263,
+    "nom": "Dupont",
+    "prenom": "Jean",
+    "adresse": "12 rue des Fleurs, 75001 Paris",
+    "telephone": "06 12 34 56 78",
+    "email": "jean.dupont@example.com",
+    "date_creation": "2023-02-15",
+    "historique": {
+      "nb_commandes": 3,
+      "derniere_commande": "2023-10-05",
+      "interventions_precedentes": [
+        {
+          "date": "2023-06-12",
+          "motif": "Réglage porte d'entrée",
+          "statut": "Résolue"
+        },
+        {
+          "date": "2023-08-25",
+          "motif": "Problème d'étanchéité fenêtre salon",
+          "statut": "Résolue"
+        }
+      ]
+    }
+  }
+} 

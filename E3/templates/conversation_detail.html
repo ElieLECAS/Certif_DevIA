@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    .chat-messages {
+        max-height: auto;
+        overflow-y: auto;
+        margin-bottom: 20px;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 15px;
+        background-color: #f8f9fa;
+    }
+    
+    .message {
+        margin-bottom: 5px;
+        padding: 10px 15px;
+        border-radius: 10px;
+        max-width: 80%;
+    }
+    
+    .message.user {
+        background-color: #007bff;
+        color: white;
+        margin-left: auto;
+    }
+    
+    .message.assistant {
+        background-color: #f1f0f0;
+        color: #333;
+        margin-right: auto;
+    }
+    
+    .message-container {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 0.4em 0.8em;
+        font-size: 80%;
+        font-weight: 600;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 50px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-right: 12px;
+    }
+    
+    .status-nouveau {
+        color: #fff;
+        background-color: #17a2b8;
+    }
+    
+    .status-en_cours {
+        color: #fff;
+        background-color: #007bff;
+    }
+    
+    .status-termine {
+        color: #fff;
+        background-color: #28a745;
+    }
+    
+    .message img {
+        max-width: 300px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+    }
+    
+    .status-container {
+        display: flex;
+        align-items: center;
+    }
+    
+    .status-select {
+        border-radius: 4px;
+        border: 1px solid #ced4da;
+        background-color: #f8f9fa;
+        padding: 6px 10px;
+        font-size: 14px;
+        transition: all 0.2s ease-in-out;
+        width: auto;
+        min-width: 120px;
+    }
+    
+    .status-select:focus {
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        border-color: #80bdff;
+        outline: 0;
+    }
+    
+    .info-table td, .info-table th {
+        padding: 12px 15px;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .info-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #495057;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-comments me-2"></i>
+                        Conversation #{{ conversation.id }}
+                    </h4>
+                    <div class="status-container">
+                        <span class="status-badge status-{{ conversation.status }}">
+                            {% if conversation.status == 'nouveau' %}Nouveau
+                            {% elif conversation.status == 'en_cours' %}En cours
+                            {% elif conversation.status == 'termine' %}Terminé
+                            {% else %}{{ conversation.status }}{% endif %}
+                        </span>
+                        <select id="status-select" class="status-select ms-2">
+                            <option value="nouveau" {% if conversation.status == 'nouveau' %}selected{% endif %}>Nouveau</option>
+                            <option value="en_cours" {% if conversation.status == 'en_cours' %}selected{% endif %}>En cours</option>
+                            <option value="termine" {% if conversation.status == 'termine' %}selected{% endif %}>Terminé</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Informations de la conversation -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <table class="table table-borderless info-table">
+                                <tr>
+                                    <th>Client:</th>
+                                    <td>{{ conversation.client_name or "Anonyme" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Créée le:</th>
+                                    <td>{{ conversation.created_at.strftime('%d/%m/%Y à %H:%M') if conversation.created_at else 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Dernière mise à jour:</th>
+                                    <td>{{ conversation.updated_at.strftime('%d/%m/%Y à %H:%M') if conversation.updated_at else 'N/A' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless info-table">
+                                <tr>
+                                    <th>Nombre de messages:</th>
+                                    <td>{{ conversation.history|length if conversation.history else 0 }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Résumé:</th>
+                                    <td>{{ conversation.summary or "Aucun résumé disponible" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Messages de la conversation -->
+                    <div class="chat-messages" id="chat-messages">
+                        {% if conversation.history %}
+                            {% for message in conversation.history %}
+                                {% if message.role != 'system' %}
+                                <div class="message-container">
+                                    <div class="message {% if message.role == 'user' %}user{% else %}assistant{% endif %}">
+                                        {% if message.image_path %}
+                                        <img src="{{ message.image_path }}" alt="Image jointe">
+                                        {% endif %}
+                                        {{ message.content }}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center text-muted">
+                                <i class="fas fa-comments fa-2x mb-2"></i>
+                                <p>Aucun message dans cette conversation</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <a href="/conversations" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Retour à la liste
+                        </a>
+                        <div>
+                            <button id="export-btn" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-download"></i> Exporter
+                            </button>
+                            <button id="close-btn" class="btn btn-success">
+                                <i class="fas fa-check"></i> Clôturer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Mise à jour du statut
+    document.getElementById('status-select').addEventListener('change', async function() {
+        const newStatus = this.value;
+        const conversationId = {{ conversation.id }};
+        
+        try {
+            const response = await fetch(`/api/conversation/${conversationId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+            
+            if (response.ok) {
+                // Mettre à jour le badge de statut
+                const statusBadge = document.querySelector('.status-badge');
+                statusBadge.className = `status-badge status-${newStatus}`;
+                statusBadge.textContent = newStatus === 'nouveau' ? 'Nouveau' : 
+                                        newStatus === 'en_cours' ? 'En cours' : 
+                                        newStatus === 'termine' ? 'Terminé' : newStatus;
+                
+                alert('Statut mis à jour avec succès !');
+            } else {
+                alert('Erreur lors de la mise à jour du statut');
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+            alert('Erreur lors de la mise à jour du statut');
+        }
+    });
+
+    // Export de la conversation
+    document.getElementById('export-btn').addEventListener('click', function() {
+        const conversationId = {{ conversation.id }};
+        window.open(`/api/conversation/${conversationId}/export`, '_blank');
+    });
+
+    // Clôturer la conversation
+    document.getElementById('close-btn').addEventListener('click', async function() {
+        if (confirm('Êtes-vous sûr de vouloir clôturer cette conversation ?')) {
+            const conversationId = {{ conversation.id }};
+            
+            try {
+                const response = await fetch('/api/close_conversation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        conversation_id: conversationId,
+                        summary: 'Conversation clôturée par l\'administrateur'
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Conversation clôturée avec succès !');
+                    window.location.href = '/conversations';
+                } else {
+                    alert('Erreur lors de la clôture de la conversation');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la clôture de la conversation');
+            }
+        }
+    });
+</script>
+{% endblock %}
