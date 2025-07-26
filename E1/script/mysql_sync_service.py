@@ -271,6 +271,9 @@ class MySQLSyncService:
             logger.info("Aucune commande à synchroniser")
             return
             
+        # Nettoyage de la table avant insertion
+        truncate_query = "TRUNCATE TABLE commandes_volets_roulants RESTART IDENTITY;"
+        
         insert_query = """
         INSERT INTO commandes_volets_roulants (
             numero_commande,
@@ -282,19 +285,19 @@ class MySQLSyncService:
             date_synchronisation
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s
-        ) ON CONFLICT (numero_commande, extension) 
-        DO UPDATE SET
-            status = EXCLUDED.status,
-            date_modification = EXCLUDED.date_modification,
-            coffre = EXCLUDED.coffre,
-            gestion_en_stock = EXCLUDED.gestion_en_stock,
-            date_synchronisation = EXCLUDED.date_synchronisation;
+        );
         """
         
         try:
             pg_conn = self.connect_postgres()
             cursor = pg_conn.cursor()
             
+            # Exécution du nettoyage
+            logger.info("Nettoyage de la table commandes_volets_roulants...")
+            cursor.execute(truncate_query)
+            
+            # Insertion des nouvelles données
+            logger.info(f"Insertion de {len(commandes)} nouvelles commandes...")
             for commande in commandes:
                 values = (
                     commande['numero_commande'],
