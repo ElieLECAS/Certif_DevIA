@@ -130,38 +130,66 @@ def initialize_faiss(openai_api_key: str):
         # Créer les répertoires s'ils n'existent pas
         pdf_directory.mkdir(parents=True, exist_ok=True)
         
-        if not faiss_index_path.exists():
+        # Vérifier s'il y a des PDFs et forcer la recréation si nécessaire
+        pdf_files = list(pdf_directory.glob("*.pdf"))
+        should_recreate = not faiss_index_path.exists()
+        
+        if should_recreate:
             all_documents = []
             
-            # Vérifier si le répertoire contient des PDFs
-            if pdf_directory.exists() and any(pdf_directory.glob("*.pdf")):
-                # Charger les documents PDF
-                for pdf_file in pdf_directory.glob("*.pdf"):
+            # Charger les documents PDF
+            if pdf_files:
+                print(f"Chargement de {len(pdf_files)} fichiers PDF...")
+                for pdf_file in pdf_files:
                     try:
+                        print(f"Traitement de {pdf_file.name}...")
                         with fitz.open(str(pdf_file)) as pdf_doc:
-                            text = ""
-                            for page in pdf_doc:
-                                text += page.get_text()  # Extraire le texte de chaque page
-                            all_documents.append(text)  # Ajouter le texte du PDF
+                            text = f"=== DOCUMENT: {pdf_file.name} ===\n"
+                            for page_num, page in enumerate(pdf_doc):
+                                page_text = page.get_text()
+                                if page_text.strip():  # Ne pas ajouter de pages vides
+                                    text += f"\n--- Page {page_num + 1} ---\n{page_text}\n"
+                            all_documents.append(text)
+                            print(f"✓ {pdf_file.name} traité ({len(text)} caractères)")
                     except Exception as e:
-                        print(f"Erreur lors de la lecture du PDF {pdf_file.name}: {str(e)}")
+                        print(f"❌ Erreur lors de la lecture du PDF {pdf_file.name}: {str(e)}")
+            else:
+                print("Aucun fichier PDF trouvé dans le dossier Catalogues")
             
             # S'il y a des documents à indexer
             if all_documents:
+                print(f"Indexation de {len(all_documents)} documents...")
                 # Fractionner les documents en parties gérables
-                text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=30, separator="\n")
-                split_documents = text_splitter.split_text("\n".join(all_documents))  # Concaténer les documents avant fractionnement
+                text_splitter = CharacterTextSplitter(
+                    chunk_size=1500, 
+                    chunk_overlap=200, 
+                    separator="\n",
+                    length_function=len
+                )
                 
+                # Traiter chaque document séparément pour garder le contexte
+                all_chunks = []
+                for doc in all_documents:
+                    chunks = text_splitter.split_text(doc)
+                    all_chunks.extend(chunks)
+                
+                print(f"Création de l'index FAISS avec {len(all_chunks)} chunks...")
                 # Créer un vectorstore depuis les documents
-                vectorstore = FAISS.from_texts(split_documents, embeddings)
+                vectorstore = FAISS.from_texts(all_chunks, embeddings)
                 faiss_index_path.mkdir(parents=True, exist_ok=True)
                 vectorstore.save_local(str(faiss_index_path))
+                print(f"✓ Index FAISS créé et sauvegardé dans {faiss_index_path}")
             else:
                 # Créer un vectorstore avec des documents par défaut s'il n'y a pas de PDFs
+                print("Aucun document PDF trouvé, utilisation des documents par défaut")
                 default_documents = [
+                    "PROFERM est spécialisé dans les portes d'entrée, les vitrages et les stores.",
+                    "La gamme LUMEAL propose des solutions d'éclairage intégrées pour les portes d'entrée.",
+                    "Les produits INNOSLIDE sont des systèmes de vitrage coulissants innovants.",
+                    "Le catalogue général PROFERM 2024 contient toutes nos références de portes d'entrée.",
+                    "Les stores PROFERM sont disponibles en différentes couleurs et matériaux.",
                     "Pour résoudre les problèmes de connexion, vérifiez d'abord votre câble réseau et redémarrez votre équipement.",
                     "Les retours de produits sont acceptés dans les 30 jours suivant l'achat avec la facture d'origine.",
-                    "Pour les problèmes de performance, essayez de vider le cache et redémarrer l'application.",
                     "Le support technique est disponible du lundi au vendredi de 9h à 18h.",
                     "En cas de problème persistant, contactez notre service client au 01 23 45 67 89."
                 ]
@@ -169,6 +197,7 @@ def initialize_faiss(openai_api_key: str):
                 faiss_index_path.mkdir(parents=True, exist_ok=True)
                 vectorstore.save_local(str(faiss_index_path))
         else:
+            print(f"Chargement de l'index FAISS existant depuis {faiss_index_path}")
             vectorstore = FAISS.load_local(str(faiss_index_path), embeddings, allow_dangerous_deserialization=True)
         
         return vectorstore

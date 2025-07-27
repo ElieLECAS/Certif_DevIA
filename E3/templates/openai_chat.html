@@ -220,6 +220,68 @@
         this.style.height = this.scrollHeight + "px";
     });
 
+    // Gérer l'envoi avec Enter et le retour à la ligne avec Shift+Enter
+    chatInput.addEventListener("keydown", async function (e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault(); // Empêcher le retour à la ligne
+            
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            // Ajouter le message utilisateur
+            addMessage(message, "user");
+            chatInput.value = "";
+            chatInput.style.height = "auto";
+
+            // Afficher l'indicateur de frappe
+            typingIndicator.style.display = "flex";
+
+            // Désactiver le bouton d'envoi
+            sendButton.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append("message", message);
+                formData.append("conversation_id", currentConversationId || "temp");
+
+                // Ajouter les images si présentes
+                const imageFiles = imageUpload.files;
+                for (let i = 0; i < imageFiles.length; i++) {
+                    formData.append("images", imageFiles[i]);
+                }
+
+                const response = await fetch("/api/chat", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    addMessage(data.response, "assistant");
+                    currentConversationId = data.conversation_id;
+                } else {
+                    addMessage(
+                        "Désolé, une erreur s'est produite. Veuillez réessayer.",
+                        "assistant"
+                    );
+                }
+            } catch (error) {
+                console.error("Erreur:", error);
+                addMessage(
+                    "Désolé, une erreur s'est produite. Veuillez réessayer.",
+                    "assistant"
+                );
+            } finally {
+                typingIndicator.style.display = "none";
+                sendButton.disabled = false;
+                chatImagePreview.innerHTML = "";
+                imageUpload.value = "";
+            }
+        }
+        // Shift+Enter permet le retour à la ligne normalement
+    });
+
     // Gérer l'upload d'images
     imageUpload.addEventListener("change", function (e) {
         const files = Array.from(e.target.files);
@@ -338,9 +400,15 @@
         if (confirm("Êtes-vous sûr de vouloir clôturer cette conversation ?")) {
             try {
                 const formData = new FormData();
-                formData.append("conversation_id", currentConversationId || "temp");
-                formData.append("summary", "Conversation clôturée par l'utilisateur");
-                
+                formData.append(
+                    "conversation_id",
+                    currentConversationId || "temp"
+                );
+                formData.append(
+                    "summary",
+                    "Conversation clôturée par l'utilisateur"
+                );
+
                 const response = await fetch("/api/close_conversation", {
                     method: "POST",
                     body: formData,

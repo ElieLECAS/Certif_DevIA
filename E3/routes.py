@@ -19,6 +19,20 @@ from database import get_db
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
+# Variable globale pour stocker l'index FAISS
+_vectorstore = None
+
+def get_vectorstore(openai_api_key: str):
+    """Obtenir l'index FAISS (initialisé une seule fois)"""
+    global _vectorstore
+    if _vectorstore is None:
+        print("🔄 Initialisation de l'index FAISS...")
+        _vectorstore = initialize_faiss(openai_api_key)
+        print("✅ Index FAISS initialisé avec succès")
+    else:
+        print("📚 Utilisation de l'index FAISS existant")
+    return _vectorstore
+
 # Route de connexion (GET)
 @router.get("/login", response_class=HTMLResponse, response_model=None)
 async def login_page(request: Request):
@@ -313,7 +327,7 @@ async def send_message(
         # Initialiser LLM et FAISS
         from langchain_openai import ChatOpenAI
         llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.4)
-        vectorstore = initialize_faiss(openai_api_key)
+        vectorstore = get_vectorstore(openai_api_key)
         
         # Ajouter le message utilisateur
         conversation.add_message("user", user_input)
@@ -328,16 +342,27 @@ async def send_message(
             ]
             conversation.history = system_prompts + conversation.history
         
-        # Recherche FAISS
-        faiss_results = vectorstore.similarity_search(user_input)
-        faiss_context = "\n".join([doc.page_content for doc in faiss_results])
+        # Recherche FAISS améliorée
+        try:
+            faiss_results = vectorstore.similarity_search(user_input, k=5)  # Récupérer 5 résultats
+            faiss_context = "\n".join([doc.page_content for doc in faiss_results])
+            print(f"Résultats FAISS trouvés: {len(faiss_results)}")
+        except Exception as e:
+            print(f"Erreur recherche FAISS: {e}")
+            faiss_context = "Informations générales PROFERM: spécialiste des portes d'entrée, vitrages et stores."
         
         # Préparer le contexte
         history_text = get_conversation_history(conversation.history)
-        complete_context = history_text + "\nContext from FAISS:\n" + faiss_context
+        complete_context = (
+            f"{history_text}\n\n"
+            f"Informations des catalogues PROFERM:\n{faiss_context}\n\n"
+            f"Instructions: Utilisez les informations des catalogues PROFERM ci-dessus pour répondre aux questions sur nos produits. "
+            f"Si vous ne trouvez pas d'informations spécifiques, redirigez poliment vers notre service client.\n\n"
+            f"User: {user_input}"
+        )
         
         # Obtenir la réponse
-        response = llm.invoke(complete_context + "\nUser: " + user_input)
+        response = llm.invoke(complete_context)
         assistant_response = response.content if hasattr(response, 'content') else "Aucune réponse trouvée."
         
         # Ajouter la réponse
@@ -475,7 +500,7 @@ async def upload_images(
         # Initialiser LLM et FAISS
         from langchain_openai import ChatOpenAI
         llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.4)
-        vectorstore = initialize_faiss(openai_api_key)
+        vectorstore = get_vectorstore(openai_api_key)
         
         # Générer une réponse pour les images
         history_text = get_conversation_history(conversation.history)
