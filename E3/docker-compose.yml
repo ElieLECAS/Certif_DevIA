@@ -24,11 +24,11 @@ services:
             - chatbot_network
 
     web:
-        build: .
+        build: ./fastapi
         container_name: chatbot_sav_web
         volumes:
-            - .:/app
-            - ./uploads:/app/uploads
+            - ./fastapi:/app
+            - ./fastapi/uploads:/app/uploads
         ports:
             - "8000:8000"
         environment:

@@ -36,7 +36,6 @@ matplotlib
 plotly
 scikit-learn
 joblib
-catboost
 
 # Requêtes HTTP
 requests
@@ -50,15 +49,8 @@ pytest-cov>=4.1.0
 thefuzz
 fuzzywuzzy
 
-# Ollama (si utilisé)
-ollama==0.1.6
-
 # Migrations de base de données
 alembic==1.12.1
-
-# Redis et Celery (pour les tâches asynchrones)
-redis>=5.0.1
-celery>=5.3.4
 
 # CORS (pour les requêtes cross-origin)
 fastapi-cors==0.0.6 

@@ -6,7 +6,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
-    netcat-openbsd \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
@@ -22,11 +21,8 @@ COPY . .
 # Créer le dossier pour les uploads
 RUN mkdir -p uploads static templates
 
-# Rendre le script de démarrage exécutable
-RUN chmod +x start.sh
-
 # Exposer le port
 EXPOSE 8000
 
 # Commande par défaut
-CMD ["./start.sh"] 
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"] 
