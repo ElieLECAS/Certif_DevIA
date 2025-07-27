@@ -67,7 +67,9 @@ L'application sera accessible à : http://localhost:8000
 
 ## 👤 Comptes par défaut
 
-### Compte Administrateur
+### Comptes par défaut
+
+#### Compte Administrateur
 
 Un compte administrateur est créé automatiquement au premier démarrage :
 
@@ -75,6 +77,23 @@ Un compte administrateur est créé automatiquement au premier démarrage :
 -   **Password** : `admin123`
 -   **Email** : `admin@chatbot-sav.com`
 -   **Rôles** : Staff + Superuser
+
+#### Utilisateurs de test
+
+Pour créer des utilisateurs de test avec leurs données, utilisez le script :
+
+```bash
+# Créer les utilisateurs de test
+python create_test_users.py
+
+# Lister les utilisateurs de test
+python create_test_users.py list
+```
+
+Cela créera :
+
+-   **Martin Dupont** : `martin` / `client123` (2 commandes)
+-   **Sophie Martin** : `sophie` / `client123` (2 commandes)
 
 ### Créer d'autres utilisateurs admin
 
