@@ -49,7 +49,7 @@ def load_json(file_path: str) -> Dict:
             return json.load(file)
     return {}
 
-def load_all_jsons(user=None) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
+def load_all_jsons(user=None, db=None) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
     """
     Charger tous les fichiers JSON nécessaires pour le contexte
     """
@@ -61,53 +61,111 @@ def load_all_jsons(user=None) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
         base_path.mkdir(parents=True, exist_ok=True)
         
         preprompt_path = base_path / "preprompt_SAV.json"
-        client_path = base_path / "client_id.json"
         renseignements_path = base_path / "protocole_renseignements.json"
         retours_path = base_path / "protocole_retour.json"
-        commandes_path = base_path / "commandes_client.json"
         
         # Charger les fichiers s'ils existent, sinon retourner des objets par défaut
         preprompt = load_json(str(preprompt_path)) if preprompt_path.exists() else {
             "content": "Vous êtes un assistant SAV professionnel."
         }
         
-        # Si un utilisateur est fourni, créer un objet client à partir de ses informations
-        if user:
+        # Si un utilisateur est fourni, récupérer les informations depuis la BDD
+        if user and db:
             try:
-                # Créer un objet client avec les informations de l'utilisateur connecté
+                from models import Commande
+                
+                # Récupérer les commandes de l'utilisateur depuis la BDD
+                user_commandes = db.query(Commande).filter(Commande.user_id == user.id).all()
+                
+                # Convertir les commandes en format JSON
+                commandes_list = []
+                for cmd in user_commandes:
+                    commande_dict = {
+                        "id_commande": cmd.numero_commande,
+                        "date": cmd.date_commande.strftime("%Y-%m-%d"),
+                        "produits": cmd.produits,
+                        "statut": cmd.statut,
+                        "montant_ht": cmd.montant_ht,
+                        "montant_ttc": cmd.montant_ttc,
+                        "adresse_livraison": cmd.adresse_livraison,
+                        "notes": cmd.notes
+                    }
+                    
+                    if cmd.date_livraison:
+                        commande_dict["date_livraison"] = cmd.date_livraison.strftime("%Y-%m-%d")
+                        # Calculer la garantie (5 ans après livraison)
+                        garantie_date = cmd.date_livraison.replace(year=cmd.date_livraison.year + 5)
+                        commande_dict["garantie_jusqu_au"] = garantie_date.strftime("%Y-%m-%d")
+                    
+                    commandes_list.append(commande_dict)
+                
+                # Créer l'objet client avec les informations de l'utilisateur
                 client_info = {
                     "client_informations": {
                         "id": user.id,
-                        "nom": getattr(user, 'last_name', '') or user.username.split('_')[-1] if '_' in user.username else '',
-                        "prenom": getattr(user, 'first_name', '') or user.username.split('_')[0] if '_' in user.username else user.username,
-                        "adresse": "",  # À compléter si vous stockez cette information
-                        "telephone": "",  # À compléter si vous stockez cette information
+                        "nom": user.nom or user.username.split('_')[-1] if '_' in user.username else user.username,
+                        "prenom": user.prenom or user.username.split('_')[0] if '_' in user.username else user.username,
+                        "adresse": user.adresse or "",
+                        "telephone": user.telephone or "",
                         "email": user.email,
                         "date_creation": user.created_at.strftime("%Y-%m-%d") if hasattr(user, 'created_at') else datetime.now().strftime("%Y-%m-%d"),
                         "historique": {
-                            "nb_commandes": 0,  # À récupérer de la base de données si disponible
-                            "derniere_commande": "",  # À récupérer de la base de données si disponible
-                            "interventions_precedentes": []  # À récupérer de la base de données si disponible
+                            "nb_commandes": len(user_commandes),
+                            "derniere_commande": user_commandes[-1].date_commande.strftime("%Y-%m-%d") if user_commandes else "",
+                            "interventions_precedentes": []  # À compléter si vous ajoutez une table d'interventions
                         }
                     }
                 }
-                client = client_info
+                
+                # Créer l'objet commandes
+                commandes = {"commandes": commandes_list}
+                
+                print(f"✅ Chargement des infos client et commandes pour {user.username} depuis la BDD")
+                print(f"   📦 {len(user_commandes)} commandes trouvées")
+                
             except Exception as e:
-                print(f"Erreur lors de la création des infos client: {e}")
-                # En cas d'erreur, on utilise le fichier JSON statique
-                client = load_json(str(client_path)) if client_path.exists() else {}
+                print(f"Erreur lors de la récupération des données client depuis la BDD: {e}")
+                # En cas d'erreur, créer des objets par défaut
+                client_info = {
+                    "client_informations": {
+                        "id": user.id,
+                        "nom": user.username,
+                        "prenom": user.username,
+                        "email": user.email,
+                        "date_creation": user.created_at.strftime("%Y-%m-%d") if hasattr(user, 'created_at') else datetime.now().strftime("%Y-%m-%d"),
+                        "historique": {
+                            "nb_commandes": 0,
+                            "derniere_commande": "",
+                            "interventions_precedentes": []
+                        }
+                    }
+                }
+                commandes = {"commandes": []}
         else:
-            # Si aucun utilisateur n'est fourni, on utilise le fichier JSON statique
-            client = load_json(str(client_path)) if client_path.exists() else {}
+            # Si aucun utilisateur n'est fourni, créer des objets par défaut
+            client_info = {
+                "client_informations": {
+                    "id": 0,
+                    "nom": "Client",
+                    "prenom": "Anonyme",
+                    "email": "",
+                    "date_creation": datetime.now().strftime("%Y-%m-%d"),
+                    "historique": {
+                        "nb_commandes": 0,
+                        "derniere_commande": "",
+                        "interventions_precedentes": []
+                    }
+                }
+            }
+            commandes = {"commandes": []}
         
         renseignements = load_json(str(renseignements_path)) if renseignements_path.exists() else {}
         retours = load_json(str(retours_path)) if retours_path.exists() else {}
-        commandes = load_json(str(commandes_path)) if commandes_path.exists() else {"commandes": []}
         
-        return preprompt, client, renseignements, retours, commandes
+        return preprompt, client_info, renseignements, retours, commandes
         
     except Exception as e:
-        print(f"Erreur lors du chargement des JSONs: {e}")
+        print(f"Erreur lors du chargement des données: {e}")
         # Retourner des valeurs par défaut en cas d'erreur
         return (
             {"content": "Assistant SAV"},
@@ -233,140 +291,6 @@ def get_conversation_history(conversation_history: List[Dict]) -> str:
 
 
 
-def create_sample_data():
-    """
-    Créer des données d'exemple pour tester l'application
-    """
-    try:
-        # Créer le dossier RAG/preprompts (comme dans Django)
-        rag_dir = Path("RAG/preprompts")
-        rag_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Créer le dossier RAG/Catalogues pour les PDFs
-        catalogues_dir = Path("RAG/Catalogues")
-        catalogues_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Preprompt SAV d'exemple
-        preprompt_sav = {
-            "content": "Vous êtes un assistant virtuel expert en service après-vente. Vous aidez les clients avec leurs questions techniques, leurs commandes, et leurs problèmes de produits. Soyez professionnel, courtois et précis dans vos réponses. Utilisez les informations des catalogues et des protocoles pour donner des réponses précises."
-        }
-        
-        with open(rag_dir / "preprompt_SAV.json", 'w', encoding='utf-8') as f:
-            json.dump(preprompt_sav, f, indent=2, ensure_ascii=False)
-        
-        # Client ID d'exemple
-        client_id = {
-            "client_informations": {
-                "id": 1,
-                "nom": "Dupont",
-                "prenom": "Jean",
-                "adresse": "123 Rue de la Paix, 75001 Paris",
-                "telephone": "01 23 45 67 89",
-                "email": "jean.dupont@email.com",
-                "date_creation": "2024-01-15",
-                "historique": {
-                    "nb_commandes": 3,
-                    "derniere_commande": "2024-07-15",
-                    "interventions_precedentes": [
-                        "Problème de connexion résolu le 2024-06-10",
-                        "Remplacement pièce défectueuse le 2024-05-20"
-                    ]
-                }
-            }
-        }
-        
-        with open(rag_dir / "client_id.json", 'w', encoding='utf-8') as f:
-            json.dump(client_id, f, indent=2, ensure_ascii=False)
-        
-        # Protocole renseignements
-        protocole_renseignements = {
-            "procedures_diagnostic": [
-                "Vérifiez d'abord l'état de votre connexion internet",
-                "Redémarrez l'équipement en cas de problème",
-                "Consultez le manuel d'utilisation",
-                "Vérifiez les voyants lumineux sur l'équipement"
-            ],
-            "questions_types": [
-                "Depuis quand le problème se manifeste-t-il ?",
-                "Avez-vous effectué des modifications récentes ?",
-                "Le problème est-il permanent ou intermittent ?",
-                "Avez-vous des messages d'erreur spécifiques ?"
-            ],
-            "faq": [
-                {
-                    "question": "Comment redémarrer mon équipement ?",
-                    "reponse": "Débranchez l'alimentation pendant 30 secondes, puis rebranchez."
-                },
-                {
-                    "question": "Que faire si mon produit ne fonctionne pas ?",
-                    "reponse": "Vérifiez les connexions et consultez le guide de dépannage."
-                }
-            ]
-        }
-        
-        with open(rag_dir / "protocole_renseignements.json", 'w', encoding='utf-8') as f:
-            json.dump(protocole_renseignements, f, indent=2, ensure_ascii=False)
-        
-        # Protocole retour
-        protocole_retour = {
-            "conditions_retour": [
-                "Retour possible dans les 30 jours suivant l'achat",
-                "Produit en bon état de fonctionnement",
-                "Emballage d'origine conservé",
-                "Facture d'achat obligatoire"
-            ],
-            "procedure": [
-                "Contactez le service client au 01 23 45 67 89",
-                "Obtenez un numéro de retour (RMA)",
-                "Emballez soigneusement le produit",
-                "Expédiez avec le transporteur indiqué"
-            ],
-            "delais": {
-                "traitement_demande": "24-48h",
-                "remboursement": "7-10 jours ouvrés",
-                "echange": "5-7 jours ouvrés"
-            }
-        }
-        
-        with open(rag_dir / "protocole_retour.json", 'w', encoding='utf-8') as f:
-            json.dump(protocole_retour, f, indent=2, ensure_ascii=False)
-        
-        # Commandes client
-        commandes_client = {
-            "commandes": [
-                {
-                    "numero": "CMD-2024-001",
-                    "date": "2024-07-15",
-                    "statut": "Livrée",
-                    "produits": ["Routeur WiFi Pro", "Câble Ethernet 5m"],
-                    "montant": 89.99
-                },
-                {
-                    "numero": "CMD-2024-002",
-                    "date": "2024-06-10",
-                    "statut": "Expédiée",
-                    "produits": ["Adaptateur USB-C"],
-                    "montant": 25.50
-                }
-            ],
-            "statuts_possibles": [
-                "En préparation",
-                "Expédiée",
-                "Livrée",
-                "Retournée",
-                "Annulée"
-            ]
-        }
-        
-        with open(rag_dir / "commandes_client.json", 'w', encoding='utf-8') as f:
-            json.dump(commandes_client, f, indent=2, ensure_ascii=False)
-        
-        print("Données d'exemple créées avec succès dans RAG/preprompts/")
-        print("Placez vos fichiers PDF dans RAG/Catalogues/ pour la recherche FAISS")
-        
-    except Exception as e:
-        print(f"Erreur lors de la création des données d'exemple: {e}")
 
-# Créer les données d'exemple au démarrage si elles n'existent pas
-if not Path("RAG").exists():
-    create_sample_data() 
+        
+ 

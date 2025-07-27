@@ -149,6 +149,36 @@ async def conversations_list(
     
     conversations = query.order_by(Conversation.updated_at.desc()).all()
     
+    # Améliorer les informations client pour chaque conversation
+    for conversation in conversations:
+        if conversation.user_id:
+            # Récupérer les informations de l'utilisateur
+            user = db.query(User).filter(User.id == conversation.user_id).first()
+            if user:
+                # Récupérer les informations client depuis la BDD
+                try:
+                    preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=user, db=db)
+                    if client_json and isinstance(client_json, dict) and 'client_informations' in client_json:
+                        client_info = client_json['client_informations']
+                        nom = client_info.get('nom', '')
+                        prenom = client_info.get('prenom', '')
+                        if nom and prenom:
+                            conversation.client_name = f"{prenom} {nom}"
+                        elif nom:
+                            conversation.client_name = nom
+                        elif prenom:
+                            conversation.client_name = prenom
+                        else:
+                            conversation.client_name = user.username
+                    else:
+                        conversation.client_name = user.username
+                except:
+                    conversation.client_name = user.username
+            else:
+                conversation.client_name = "Utilisateur inconnu"
+        else:
+            conversation.client_name = conversation.client_name or "Anonyme"
+    
     return templates.TemplateResponse(
         "conversations_list.html",
         {
@@ -245,7 +275,7 @@ async def chat_page(
     
     # Récupérer les informations du client
     try:
-        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user)
+        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user, db=db)
     except:
         client_json = {}
     
@@ -288,10 +318,10 @@ async def send_message(
             raise HTTPException(status_code=500, detail="Clé API OpenAI non configurée")
         
         # Récupérer les données contextuelles
-        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user)
+        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user, db=db)
         
         # Extraire le nom du client
-        client_name = "Client"
+        client_name = current_user.username  # Utiliser le username par défaut
         if client_json and isinstance(client_json, dict):
             if 'client_informations' in client_json:
                 client_info = client_json['client_informations']
