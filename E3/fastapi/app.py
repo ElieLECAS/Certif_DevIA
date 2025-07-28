@@ -1,26 +1,15 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import uvicorn
 from datetime import datetime
 
-# FastAPI app
-app = FastAPI(title="Chatbot SAV", description="Application de chatbot pour le service après-vente")
-
-# Static files et templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
-# Importer la configuration de base de données
-from database import engine
-
-# Importer et inclure les routes
-from routes import router
-app.include_router(router)
-
-# Créer les tables au démarrage (avec gestion d'erreur)
-@app.on_event("startup")
-async def startup_event():
+# Fonction de lifespan pour remplacer @app.on_event
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
     import asyncio
     import time
     
@@ -29,7 +18,7 @@ async def startup_event():
     for attempt in range(max_retries):
         try:
             from models import Base, User
-            from database import SessionLocal
+            from database import SessionLocal, engine
             from auth import get_password_hash
             
             # Tester la connexion en créant les tables
@@ -76,6 +65,35 @@ async def startup_event():
             else:
                 print("❌ Impossible de se connecter à la base de données après plusieurs tentatives")
                 print("Les tables seront créées lors de la première requête")
+    
+    yield
+    
+    # Shutdown (optionnel)
+    print("🔄 Arrêt de l'application...")
+
+# FastAPI app avec lifespan
+app = FastAPI(
+    title="Chatbot SAV", 
+    description="Application de chatbot pour le service après-vente",
+    lifespan=lifespan
+)
+
+# Configuration CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # En production, spécifier les domaines autorisés
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Static files et templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+# Importer et inclure les routes
+from routes import router
+app.include_router(router)
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True) 

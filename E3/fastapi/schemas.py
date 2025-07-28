@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -31,8 +31,7 @@ class User(UserBase):
     id: int
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ClientUserCreate(BaseModel):
     user_id: int
@@ -45,8 +44,7 @@ class ClientUser(BaseModel):
     active_conversation_id: Optional[int] = None
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Schémas pour les conversations
 class ConversationCreate(BaseModel):
@@ -68,8 +66,7 @@ class Conversation(BaseModel):
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Schémas pour les messages de chat
 class ChatMessage(BaseModel):

@@ -65,6 +65,60 @@ docker-compose up -d --build
 
 L'application sera accessible à : http://localhost:8000
 
+## 🧪 Tests et qualité
+
+### Exécution des tests
+
+```bash
+# Lancer tous les tests
+python run_tests.py
+
+# Ou depuis le dossier tests
+cd tests
+python run_all_tests.py
+
+# Tests spécifiques
+python -m pytest test_working.py -v
+python -m pytest test_basic.py -v
+python test_simple.py
+```
+
+### Structure des tests
+
+```
+tests/
+├── test_working.py          # 19 tests fonctionnels
+├── test_basic.py            # 7 tests basiques
+├── test_auth.py             # Tests d'authentification
+├── test_api_endpoints.py    # Tests des endpoints
+├── test_simple.py           # Tests simples
+├── run_all_tests.py         # Script principal
+└── README.md               # Documentation
+```
+
+### Couverture de code
+
+Les tests couvrent :
+
+-   ✅ Authentification et autorisation (JWT, bcrypt)
+-   ✅ Endpoints de l'API (routes, réponses HTTP)
+-   ✅ Gestion des conversations et commandes
+-   ✅ Upload d'images et fichiers
+-   ✅ Validation des données (Pydantic)
+-   ✅ Gestion d'erreurs et sécurité
+-   ✅ Configuration et middleware
+
+**Objectif de couverture** : 80% minimum
+
+### Audit de sécurité
+
+Le script inclut un audit de sécurité qui vérifie :
+
+-   Configuration JWT (secret key, algorithm)
+-   Hachage des mots de passe (bcrypt)
+-   Configuration CORS (middleware)
+-   Validation des données (Pydantic schemas)
+
 ## 👤 Comptes par défaut
 
 ### Comptes par défaut
