@@ -12,8 +12,6 @@ services:
         volumes:
             - chatbot_postgres_data:/var/lib/postgresql/data
             - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-        ports:
-            - "5433:5432"
         healthcheck:
             test: ["CMD-SHELL", "pg_isready -U postgres -d chatbot_sav"]
             interval: 10s
@@ -30,7 +28,7 @@ services:
             - ./fastapi:/app
             - ./fastapi/uploads:/app/uploads
         ports:
-            - "8000:8000"
+            - "8001:8000"
         environment:
             - DATABASE_URL=postgresql://postgres:password@db:5432/chatbot_sav
             - SECRET_KEY=your-super-secret-key-change-in-production
