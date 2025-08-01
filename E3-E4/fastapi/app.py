@@ -1,70 +1,53 @@
+"""Application FastAPI principale du chatbot SAV."""
+
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
+from sqlalchemy.exc import OperationalError
 import uvicorn
-from datetime import datetime
 
 # Fonction de lifespan pour remplacer @app.on_event
+def create_default_admin(db):
+    """Créer l'utilisateur administrateur par défaut si nécessaire."""
+    from models import User
+    from auth import get_password_hash
+
+    admin = db.query(User).filter(User.username == "admin").first()
+    if not admin:
+        admin = User(
+            username="admin",
+            email="admin@chatbot-sav.com",
+            hashed_password=get_password_hash("admin123"),
+            is_active=True,
+            is_staff=True,
+            is_superuser=True,
+        )
+        db.add(admin)
+        db.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    """Initialise la base et crée l'administrateur."""
     import asyncio
-    import time
-    
-    # Attendre que la base de données soit prête avec retry
-    max_retries = 10
+
+    from database import SessionLocal, engine
+    from models import Base
+
+    max_retries = 5
     for attempt in range(max_retries):
         try:
-            from models import Base, User
-            from database import SessionLocal, engine
-            from auth import get_password_hash
-            
-            # Tester la connexion en créant les tables
             Base.metadata.create_all(bind=engine)
-            print("✅ Tables créées avec succès")
-            
-            # Créer l'utilisateur admin par défaut
-            db = SessionLocal()
-            try:
-                
-                # Créer l'utilisateur admin
-                admin_user = db.query(User).filter(User.username == "admin").first()
-                if not admin_user:
-                    admin_user = User(
-                        username="admin",
-                        email="admin@chatbot-sav.com",
-                        hashed_password=get_password_hash("admin123"),
-                        is_active=True,
-                        is_staff=True,
-                        is_superuser=True
-                    )
-                    db.add(admin_user)
-                    db.commit()
-                    print("✅ Utilisateur admin créé avec succès")
-                    print("   👤 Username: admin")
-                    print("   🔑 Password: admin123")
-                    print("   📧 Email: admin@chatbot-sav.com")
-                else:
-                    print("ℹ️  Utilisateur admin existe déjà")
-                
-
-                
-                break  # Sortir de la boucle si tout va bien
-            except Exception as e:
-                print(f"⚠️  Erreur lors de la création des utilisateurs: {e}")
-            finally:
-                db.close()
-                
-        except Exception as e:
-            print(f"⚠️  Tentative {attempt + 1}/{max_retries} - Erreur de connexion DB: {e}")
+            with SessionLocal() as db:
+                create_default_admin(db)
+            break
+        except OperationalError as e:
             if attempt < max_retries - 1:
-                print("⏳ Nouvelle tentative dans 3 secondes...")
                 await asyncio.sleep(3)
             else:
-                print("❌ Impossible de se connecter à la base de données après plusieurs tentatives")
-                print("Les tables seront créées lors de la première requête")
+                raise e
     
     yield
     
