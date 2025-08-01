@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 from datetime import datetime
+import os
 
 # Fonction de lifespan pour remplacer @app.on_event
 @asynccontextmanager
@@ -33,9 +34,9 @@ async def lifespan(app: FastAPI):
                 admin_user = db.query(User).filter(User.username == "admin").first()
                 if not admin_user:
                     admin_user = User(
-                        username="admin",
-                        email="admin@chatbot-sav.com",
-                        hashed_password=get_password_hash("admin123"),
+                        username=os.getenv("ADMIN_USERNAME"),
+                        email=os.getenv("ADMIN_EMAIL"),
+                        hashed_password=get_password_hash(os.getenv("ADMIN_PASSWORD")),
                         is_active=True,
                         is_staff=True,
                         is_superuser=True
