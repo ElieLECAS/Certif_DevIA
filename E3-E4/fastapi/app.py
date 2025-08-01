@@ -44,9 +44,6 @@ async def lifespan(app: FastAPI):
                     db.add(admin_user)
                     db.commit()
                     print("✅ Utilisateur admin créé avec succès")
-                    print("   👤 Username: admin")
-                    print("   🔑 Password: admin123")
-                    print("   📧 Email: admin@chatbot-sav.com")
                 else:
                     print("ℹ️  Utilisateur admin existe déjà")
                 
