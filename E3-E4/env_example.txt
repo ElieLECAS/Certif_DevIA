@@ -9,4 +9,9 @@ OPENAI_API_KEY=your-openai-api-key-here
 
 # Configuration de l'application
 DEBUG=True
-ENVIRONMENT=development 
+ENVIRONMENT=development
+
+# Configuration de l'administrateur par défaut
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=admin123 

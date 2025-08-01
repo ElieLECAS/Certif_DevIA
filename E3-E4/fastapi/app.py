@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.exc import OperationalError
 import uvicorn
+import os
 
 # Fonction de lifespan pour remplacer @app.on_event
 def create_default_admin(db):
@@ -16,10 +17,15 @@ def create_default_admin(db):
 
     admin = db.query(User).filter(User.username == "admin").first()
     if not admin:
+        # Vérifier et définir les valeurs par défaut si les variables d'environnement ne sont pas définies
+        admin_username = os.getenv("ADMIN_USERNAME")
+        admin_email = os.getenv("ADMIN_EMAIL")
+        admin_password = os.getenv("ADMIN_PASSWORD")
+        
         admin = User(
-            username="admin",
-            email="admin@chatbot-sav.com",
-            hashed_password=get_password_hash("admin123"),
+            username=admin_username,
+            email=admin_email,
+            hashed_password=get_password_hash(admin_password),
             is_active=True,
             is_staff=True,
             is_superuser=True,
