@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/chatbot_sav")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Database
 engine = create_engine(DATABASE_URL)
