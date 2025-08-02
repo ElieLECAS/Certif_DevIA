@@ -60,6 +60,15 @@ async def save_uploaded_file(uploaded_file: UploadFile) -> str:
     Sauvegarder un fichier uploadé et retourner le chemin
     """
     try:
+        # Validation du type de fichier
+        if not uploaded_file.content_type or not uploaded_file.content_type.startswith('image/'):
+            raise ValueError(f"Type de fichier non autorisé: {uploaded_file.content_type}")
+        
+        # Validation de la taille du fichier (max 10MB)
+        content = await uploaded_file.read()
+        if len(content) > 10 * 1024 * 1024:  # 10MB
+            raise ValueError("Fichier trop volumineux (max 10MB)")
+        
         # Créer le dossier uploads s'il n'existe pas
         upload_dir = Path("uploads/uploaded_images")
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -71,7 +80,6 @@ async def save_uploaded_file(uploaded_file: UploadFile) -> str:
         
         # Sauvegarder le fichier
         async with aiofiles.open(file_path, 'wb') as f:
-            content = await uploaded_file.read()
             await f.write(content)
         
         # Retourner l'URL relative pour l'accès via navigateur

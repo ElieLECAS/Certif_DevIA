@@ -12,6 +12,7 @@ from models import User, ClientUser, Conversation
 from auth import authenticate_user, create_access_token, get_current_active_user, get_client_user, is_client_only, is_staff_or_admin, get_password_hash
 from langchain_utils import initialize_faiss, load_all_jsons, get_conversation_history, save_uploaded_file
 from utils import get_openai_api_key, MISSING_OPENAI_KEY_MSG
+from schemas import ChatMessage, ChatResponse, ConversationClose, ClientNameUpdate
 
 # Import de la fonction get_db depuis database
 from database import get_db
@@ -344,13 +345,16 @@ async def send_message(
         user_input = form_data.get("message", "").strip()
         conversation_id = form_data.get("conversation_id", "temp")
         
+        # Validation des entrées avec ChatMessage
+        chat_message = ChatMessage(message=user_input, conversation_id=conversation_id)
+        
         # Récupérer les images si présentes
         images = []
         for key, value in form_data.items():
             if key.startswith("images") and hasattr(value, 'file'):
                 images.append(value)
         
-        if not user_input:
+        if not chat_message.message:
             raise HTTPException(status_code=400, detail="Le message ne peut pas être vide")
         
         # Configuration OpenAI
@@ -452,14 +456,16 @@ async def close_conversation(
         conversation_id = form_data.get("conversation_id")
         summary = form_data.get("summary", "Conversation clôturée par l'utilisateur")
         
+        # Validation avec ConversationClose
+        if conversation_id and conversation_id != "temp":
+            try:
+                conv_close = ConversationClose(conversation_id=int(conversation_id))
+                conversation_id = conv_close.conversation_id
+            except (ValueError, TypeError):
+                return {"status": "success", "message": "ID de conversation invalide"}
+        
         if not conversation_id or conversation_id == "temp":
             return {"status": "success", "message": "Aucune conversation active à clôturer"}
-        
-        # Convertir en int si c'est une chaîne
-        try:
-            conversation_id = int(conversation_id)
-        except (ValueError, TypeError):
-            return {"status": "success", "message": "ID de conversation invalide"}
         
         conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
         if not conversation:
@@ -512,8 +518,14 @@ async def upload_images(
     db: Session = Depends(get_db)
 ):
     try:
+        # Validation des fichiers uploadés
         if not images:
             raise HTTPException(status_code=400, detail="Aucune image téléchargée")
+        
+        # Validation des types de fichiers
+        for image in images:
+            if not image.content_type or not image.content_type.startswith('image/'):
+                raise HTTPException(status_code=400, detail=f"Type de fichier non autorisé: {image.content_type}")
         
         # Configuration OpenAI
         try:
@@ -602,9 +614,11 @@ async def update_client_name(
         conversation_id = form_data.get("conversation_id")
         client_name = form_data.get("client_name", "")
         
-        # Convertir en int si c'est une chaîne
+        # Validation avec ClientNameUpdate
         try:
-            conversation_id = int(conversation_id)
+            client_update = ClientNameUpdate(conversation_id=int(conversation_id), client_name=client_name)
+            conversation_id = client_update.conversation_id
+            client_name = client_update.client_name
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="ID de conversation invalide")
         
