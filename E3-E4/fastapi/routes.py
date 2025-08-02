@@ -28,11 +28,11 @@ def get_vectorstore(openai_api_key: str):
     """Obtenir l'index FAISS (initialisé une seule fois)"""
     global _vectorstore
     if _vectorstore is None:
-        print("🔄 Initialisation de l'index FAISS...")
+        logger.info("\ud83d\udd04 Initialisation de l'index FAISS...")
         _vectorstore = initialize_faiss(openai_api_key)
-        print("✅ Index FAISS initialisé avec succès")
+        logger.info("\u2705 Index FAISS initialisé avec succ\u00e8s")
     else:
-        print("📚 Utilisation de l'index FAISS existant")
+        logger.info("\ud83d\udcda Utilisation de l'index FAISS existant")
     return _vectorstore
 
 
@@ -404,10 +404,10 @@ async def send_message(
         try:
             faiss_results = vectorstore.similarity_search(user_input, k=5)  # Récupérer 5 résultats
             faiss_context = "\n".join([doc.page_content for doc in faiss_results])
-            print(f"Résultats FAISS trouvés: {len(faiss_results)}")
+            logger.info("R\xc3\xa9sultats FAISS trouv\xc3\xa9s: %d", len(faiss_results))
         except Exception as e:
-            print(f"Erreur recherche FAISS: {e}")
-            faiss_context = "Informations générales PROFERM: spécialiste des portes d'entrée, vitrages et stores."
+            logger.error("Erreur recherche FAISS: %s", e)
+            faiss_context = "Informations g\xc3\xa9n\xc3\xa9rales PROFERM: sp\xc3\xa9cialiste des portes d'entr\xc3\xa9e, vitrages et stores."
         
         # Préparer le contexte
         history_text = get_conversation_history(conversation.history)
