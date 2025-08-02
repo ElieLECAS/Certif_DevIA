@@ -11,6 +11,7 @@ import logging
 from models import User, ClientUser, Conversation
 from auth import authenticate_user, create_access_token, get_current_active_user, get_client_user, is_client_only, is_staff_or_admin, get_password_hash
 from langchain_utils import initialize_faiss, load_all_jsons, get_conversation_history, save_uploaded_file
+from utils import get_openai_api_key, MISSING_OPENAI_KEY_MSG
 
 # Import de la fonction get_db depuis database
 from database import get_db
@@ -353,9 +354,10 @@ async def send_message(
             raise HTTPException(status_code=400, detail="Le message ne peut pas être vide")
         
         # Configuration OpenAI
-        openai_api_key = os.getenv('OPENAI_API_KEY')
-        if not openai_api_key:
-            raise HTTPException(status_code=500, detail="Clé API OpenAI non configurée")
+        try:
+            openai_api_key = get_openai_api_key()
+        except EnvironmentError:
+            raise HTTPException(status_code=500, detail=MISSING_OPENAI_KEY_MSG)
         
         # Récupérer les données contextuelles
         preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user, db=db)
@@ -478,7 +480,10 @@ async def close_conversation(
             return {"status": "success", "message": "Conversation vide supprimée"}
         
         # Générer un résumé
-        openai_api_key = os.getenv('OPENAI_API_KEY')
+        try:
+            openai_api_key = get_openai_api_key()
+        except EnvironmentError:
+            openai_api_key = None
         if openai_api_key:
             from langchain_openai import ChatOpenAI
             llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.3)
@@ -511,9 +516,10 @@ async def upload_images(
             raise HTTPException(status_code=400, detail="Aucune image téléchargée")
         
         # Configuration OpenAI
-        openai_api_key = os.getenv('OPENAI_API_KEY')
-        if not openai_api_key:
-            raise HTTPException(status_code=500, detail="Clé API OpenAI non configurée")
+        try:
+            openai_api_key = get_openai_api_key()
+        except EnvironmentError:
+            raise HTTPException(status_code=500, detail=MISSING_OPENAI_KEY_MSG)
         
         # Charger les informations client et récupérer ou créer la conversation
         preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user)
