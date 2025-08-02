@@ -7,6 +7,7 @@ from typing import Optional, List
 import json
 import os
 from pathlib import Path
+import logging
 
 from models import User, ClientUser, Conversation
 from schemas import UserCreate, UserLogin, Token, ChatMessage, ChatResponse, ConversationClose, ClientNameUpdate
@@ -18,6 +19,7 @@ from database import get_db
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+logger = logging.getLogger(__name__)
 
 # Variable globale pour stocker l'index FAISS
 _vectorstore = None
@@ -172,7 +174,11 @@ async def conversations_list(
                             conversation.client_name = user.username
                     else:
                         conversation.client_name = user.username
-                except:
+                except Exception as e:
+                    logger.error(
+                        "Erreur lors du chargement des informations client : %s",
+                        e,
+                    )
                     conversation.client_name = user.username
             else:
                 conversation.client_name = "Utilisateur inconnu"
@@ -275,8 +281,14 @@ async def chat_page(
     
     # Récupérer les informations du client
     try:
-        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user, db=db)
-    except:
+        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(
+            user=current_user, db=db
+        )
+    except Exception as e:
+        logger.error(
+            "Erreur lors du chargement des informations client : %s",
+            e,
+        )
         client_json = {}
     
     return templates.TemplateResponse(
