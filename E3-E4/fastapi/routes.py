@@ -7,17 +7,19 @@ from typing import Optional, List
 import json
 import os
 from pathlib import Path
-
+import logging
 from models import User, ClientUser, Conversation
-from schemas import UserCreate, UserLogin, Token, ChatMessage, ChatResponse, ConversationClose, ClientNameUpdate
 from auth import authenticate_user, create_access_token, get_current_active_user, get_client_user, is_client_only, is_staff_or_admin, get_password_hash
 from langchain_utils import initialize_faiss, load_all_jsons, get_conversation_history, save_uploaded_file
+from utils import get_openai_api_key, MISSING_OPENAI_KEY_MSG
+from schemas import ChatMessage, ChatResponse, ConversationClose, ClientNameUpdate
 
 # Import de la fonction get_db depuis database
 from database import get_db
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+logger = logging.getLogger(__name__)
 
 # Variable globale pour stocker l'index FAISS
 _vectorstore = None
@@ -26,12 +28,42 @@ def get_vectorstore(openai_api_key: str):
     """Obtenir l'index FAISS (initialisé une seule fois)"""
     global _vectorstore
     if _vectorstore is None:
-        print("🔄 Initialisation de l'index FAISS...")
+        logger.info("\ud83d\udd04 Initialisation de l'index FAISS...")
         _vectorstore = initialize_faiss(openai_api_key)
-        print("✅ Index FAISS initialisé avec succès")
+        logger.info("\u2705 Index FAISS initialisé avec succ\u00e8s")
     else:
-        print("📚 Utilisation de l'index FAISS existant")
+        logger.info("\ud83d\udcda Utilisation de l'index FAISS existant")
     return _vectorstore
+
+
+def get_or_create_conversation(
+    db: Session,
+    user: User,
+    conversation_id: Optional[str],
+    client_name: str,
+) -> Conversation:
+    """Récupérer une conversation existante ou en créer une nouvelle."""
+    conversation = None
+    if conversation_id and conversation_id != "temp":
+        try:
+            conv_id = int(conversation_id)
+            conversation = (
+                db.query(Conversation).filter(Conversation.id == conv_id).first()
+            )
+        except (ValueError, TypeError):
+            conversation = None
+
+    if not conversation:
+        conversation = Conversation(
+            client_name=client_name,
+            status="nouveau",
+            user_id=user.id,
+        )
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+
+    return conversation
 
 # Route de connexion (GET)
 @router.get("/login", response_class=HTMLResponse, response_model=None)
@@ -172,7 +204,11 @@ async def conversations_list(
                             conversation.client_name = user.username
                     else:
                         conversation.client_name = user.username
-                except:
+                except Exception as e:
+                    logger.error(
+                        "Erreur lors du chargement des informations client : %s",
+                        e,
+                    )
                     conversation.client_name = user.username
             else:
                 conversation.client_name = "Utilisateur inconnu"
@@ -275,8 +311,14 @@ async def chat_page(
     
     # Récupérer les informations du client
     try:
-        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user, db=db)
-    except:
+        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(
+            user=current_user, db=db
+        )
+    except Exception as e:
+        logger.error(
+            "Erreur lors du chargement des informations client : %s",
+            e,
+        )
         client_json = {}
     
     return templates.TemplateResponse(
@@ -303,19 +345,23 @@ async def send_message(
         user_input = form_data.get("message", "").strip()
         conversation_id = form_data.get("conversation_id", "temp")
         
+        # Validation des entrées avec ChatMessage
+        chat_message = ChatMessage(message=user_input, conversation_id=conversation_id)
+        
         # Récupérer les images si présentes
         images = []
         for key, value in form_data.items():
             if key.startswith("images") and hasattr(value, 'file'):
                 images.append(value)
         
-        if not user_input:
+        if not chat_message.message:
             raise HTTPException(status_code=400, detail="Le message ne peut pas être vide")
         
         # Configuration OpenAI
-        openai_api_key = os.getenv('OPENAI_API_KEY')
-        if not openai_api_key:
-            raise HTTPException(status_code=500, detail="Clé API OpenAI non configurée")
+        try:
+            openai_api_key = get_openai_api_key()
+        except EnvironmentError:
+            raise HTTPException(status_code=500, detail=MISSING_OPENAI_KEY_MSG)
         
         # Récupérer les données contextuelles
         preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user, db=db)
@@ -333,26 +379,12 @@ async def send_message(
                     client_name = nom
         
         # Récupérer ou créer une conversation
-        if conversation_id and conversation_id != "temp":
-            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            if not conversation:
-                conversation = Conversation(
-                    client_name=client_name,
-                    status="nouveau",
-                    user_id=current_user.id
-                )
-                db.add(conversation)
-                db.commit()
-                db.refresh(conversation)
-        else:
-            conversation = Conversation(
-                client_name=client_name,
-                status="nouveau",
-                user_id=current_user.id
-            )
-            db.add(conversation)
-            db.commit()
-            db.refresh(conversation)
+        conversation = get_or_create_conversation(
+            db=db,
+            user=current_user,
+            conversation_id=conversation_id,
+            client_name=client_name,
+        )
         
         # Initialiser LLM et FAISS
         from langchain_openai import ChatOpenAI
@@ -376,10 +408,10 @@ async def send_message(
         try:
             faiss_results = vectorstore.similarity_search(user_input, k=5)  # Récupérer 5 résultats
             faiss_context = "\n".join([doc.page_content for doc in faiss_results])
-            print(f"Résultats FAISS trouvés: {len(faiss_results)}")
+            logger.info("R\xc3\xa9sultats FAISS trouv\xc3\xa9s: %d", len(faiss_results))
         except Exception as e:
-            print(f"Erreur recherche FAISS: {e}")
-            faiss_context = "Informations générales PROFERM: spécialiste des portes d'entrée, vitrages et stores."
+            logger.error("Erreur recherche FAISS: %s", e)
+            faiss_context = "Informations g\xc3\xa9n\xc3\xa9rales PROFERM: sp\xc3\xa9cialiste des portes d'entr\xc3\xa9e, vitrages et stores."
         
         # Préparer le contexte
         history_text = get_conversation_history(conversation.history)
@@ -424,14 +456,16 @@ async def close_conversation(
         conversation_id = form_data.get("conversation_id")
         summary = form_data.get("summary", "Conversation clôturée par l'utilisateur")
         
+        # Validation avec ConversationClose
+        if conversation_id and conversation_id != "temp":
+            try:
+                conv_close = ConversationClose(conversation_id=int(conversation_id))
+                conversation_id = conv_close.conversation_id
+            except (ValueError, TypeError):
+                return {"status": "success", "message": "ID de conversation invalide"}
+        
         if not conversation_id or conversation_id == "temp":
             return {"status": "success", "message": "Aucune conversation active à clôturer"}
-        
-        # Convertir en int si c'est une chaîne
-        try:
-            conversation_id = int(conversation_id)
-        except (ValueError, TypeError):
-            return {"status": "success", "message": "ID de conversation invalide"}
         
         conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
         if not conversation:
@@ -452,7 +486,10 @@ async def close_conversation(
             return {"status": "success", "message": "Conversation vide supprimée"}
         
         # Générer un résumé
-        openai_api_key = os.getenv('OPENAI_API_KEY')
+        try:
+            openai_api_key = get_openai_api_key()
+        except EnvironmentError:
+            openai_api_key = None
         if openai_api_key:
             from langchain_openai import ChatOpenAI
             llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.3)
@@ -481,40 +518,40 @@ async def upload_images(
     db: Session = Depends(get_db)
 ):
     try:
+        # Validation des fichiers uploadés
         if not images:
             raise HTTPException(status_code=400, detail="Aucune image téléchargée")
         
-        # Configuration OpenAI
-        openai_api_key = os.getenv('OPENAI_API_KEY')
-        if not openai_api_key:
-            raise HTTPException(status_code=500, detail="Clé API OpenAI non configurée")
+        # Validation des types de fichiers
+        for image in images:
+            if not image.content_type or not image.content_type.startswith('image/'):
+                raise HTTPException(status_code=400, detail=f"Type de fichier non autorisé: {image.content_type}")
         
-        # Récupérer ou créer conversation
-        if conversation_id == "temp":
-            preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user)
-            client_name = "Client"
-            if client_json and isinstance(client_json, dict):
-                if 'client_informations' in client_json:
-                    client_info = client_json['client_informations']
-                    nom = client_info.get('nom', '')
-                    prenom = client_info.get('prenom', '')
-                    if nom and prenom:
-                        client_name = f"{prenom} {nom}"
-                    elif nom:
-                        client_name = nom
-            
-            conversation = Conversation(
-                client_name=client_name,
-                status="nouveau",
-                user_id=current_user.id
-            )
-            db.add(conversation)
-            db.commit()
-            db.refresh(conversation)
-        else:
-            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            if not conversation:
-                raise HTTPException(status_code=404, detail="Conversation non trouvée")
+        # Configuration OpenAI
+        try:
+            openai_api_key = get_openai_api_key()
+        except EnvironmentError:
+            raise HTTPException(status_code=500, detail=MISSING_OPENAI_KEY_MSG)
+        
+        # Charger les informations client et récupérer ou créer la conversation
+        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user)
+        client_name = "Client"
+        if client_json and isinstance(client_json, dict):
+            if 'client_informations' in client_json:
+                client_info = client_json['client_informations']
+                nom = client_info.get('nom', '')
+                prenom = client_info.get('prenom', '')
+                if nom and prenom:
+                    client_name = f"{prenom} {nom}"
+                elif nom:
+                    client_name = nom
+
+        conversation = get_or_create_conversation(
+            db=db,
+            user=current_user,
+            conversation_id=conversation_id,
+            client_name=client_name,
+        )
         
         # Sauvegarder les images
         image_paths = []
@@ -577,9 +614,11 @@ async def update_client_name(
         conversation_id = form_data.get("conversation_id")
         client_name = form_data.get("client_name", "")
         
-        # Convertir en int si c'est une chaîne
+        # Validation avec ClientNameUpdate
         try:
-            conversation_id = int(conversation_id)
+            client_update = ClientNameUpdate(conversation_id=int(conversation_id), client_name=client_name)
+            conversation_id = client_update.conversation_id
+            client_name = client_update.client_name
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="ID de conversation invalide")
         

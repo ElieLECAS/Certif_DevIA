@@ -56,9 +56,7 @@ async def lifespan(app: FastAPI):
                 raise e
     
     yield
-    
-    # Shutdown (optionnel)
-    print("🔄 Arrêt de l'application...")
+
 
 # FastAPI app avec lifespan
 app = FastAPI(
@@ -68,11 +66,14 @@ app = FastAPI(
 )
 
 # Configuration CORS
+# Récupérer les origines autorisées depuis les variables d'environnement
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:8000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En production, spécifier les domaines autorisés
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

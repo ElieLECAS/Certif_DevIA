@@ -229,6 +229,7 @@ class OpenaiView(LoginRequiredMixin, ExpeditionOnlyMixin, CentreUsinageOnlyMixin
             from .langchain_utils import initialize_faiss, load_all_jsons, get_conversation_history
             from langchain_openai import ChatOpenAI
             from langchain import hub
+            from utils import get_openai_api_key, MISSING_OPENAI_KEY_MSG
 
             data = json.loads(request.body.decode('utf-8'))
             user_input = data.get('message')
@@ -240,11 +241,10 @@ class OpenaiView(LoginRequiredMixin, ExpeditionOnlyMixin, CentreUsinageOnlyMixin
                 }, status=400)
             
             # Configuration de l'API key
-            openai_api_key = os.getenv('OPENAI_API_KEY')
-            if not openai_api_key:
-                return JsonResponse({
-                    "error": "Clé API OpenAI non configurée"
-                }, status=500)
+            try:
+                openai_api_key = get_openai_api_key()
+            except EnvironmentError:
+                return JsonResponse({"error": MISSING_OPENAI_KEY_MSG}, status=500)
             
             # Récupérer les données contextuelles en passant l'utilisateur connecté
             preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=request.user)
@@ -390,11 +390,11 @@ class OpenaiView(LoginRequiredMixin, ExpeditionOnlyMixin, CentreUsinageOnlyMixin
                     })
                 
                 # Configuration de l'API key
-                openai_api_key = os.getenv('OPENAI_API_KEY')
-                if not openai_api_key:
-                    return JsonResponse({
-                        "error": "Clé API OpenAI non configurée"
-                    }, status=500)
+                try:
+                    from utils import get_openai_api_key, MISSING_OPENAI_KEY_MSG
+                    openai_api_key = get_openai_api_key()
+                except EnvironmentError:
+                    return JsonResponse({"error": MISSING_OPENAI_KEY_MSG}, status=500)
                 
                 # Récupérer les informations client avec l'utilisateur connecté
                 preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=request.user)
@@ -452,11 +452,11 @@ class OpenaiView(LoginRequiredMixin, ExpeditionOnlyMixin, CentreUsinageOnlyMixin
                 conversation_id = request.POST.get('conversation_id')
                 
                 # Configuration de l'API key pour réutilisation
-                openai_api_key = os.getenv('OPENAI_API_KEY')
-                if not openai_api_key:
-                    return JsonResponse({
-                        "error": "Clé API OpenAI non configurée"
-                    }, status=500)
+                try:
+                    from utils import get_openai_api_key, MISSING_OPENAI_KEY_MSG
+                    openai_api_key = get_openai_api_key()
+                except EnvironmentError:
+                    return JsonResponse({"error": MISSING_OPENAI_KEY_MSG}, status=500)
                 
                 # Si c'est une conversation temporaire ou qu'il n'y a pas d'ID, créer une vraie conversation
                 if not conversation_id or conversation_id == "temp":
