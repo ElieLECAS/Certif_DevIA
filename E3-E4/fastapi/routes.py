@@ -8,9 +8,7 @@ import json
 import os
 from pathlib import Path
 import logging
-
 from models import User, ClientUser, Conversation
-from schemas import UserCreate, UserLogin, Token, ChatMessage, ChatResponse, ConversationClose, ClientNameUpdate
 from auth import authenticate_user, create_access_token, get_current_active_user, get_client_user, is_client_only, is_staff_or_admin, get_password_hash
 from langchain_utils import initialize_faiss, load_all_jsons, get_conversation_history, save_uploaded_file
 
