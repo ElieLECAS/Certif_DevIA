@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
-import bcrypt
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from models import User, ClientUser
 from schemas import TokenData
@@ -16,13 +16,16 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 security = HTTPBearer(auto_error=False)
 
+# Contexte de hachage des mots de passe utilisant bcrypt via passlib
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 def verify_password(plain_password, hashed_password):
-    """Vérifie un mot de passe avec bcrypt"""
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    """Vérifie un mot de passe à l'aide de passlib"""
+    return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password):
-    """Hache un mot de passe avec bcrypt"""
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    """Hache un mot de passe à l'aide de passlib"""
+    return pwd_context.hash(password)
 
 def get_user(db: Session, username: str):
     return db.query(User).filter(User.username == username).first()
@@ -40,7 +43,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
