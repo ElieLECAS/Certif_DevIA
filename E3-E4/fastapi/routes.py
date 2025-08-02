@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 import json
 import os
+from pathlib import Path
+import logging
 from models import User, ClientUser, Conversation
 from auth import authenticate_user, create_access_token, get_current_active_user, get_client_user, is_client_only, is_staff_or_admin, get_password_hash
 from langchain_utils import initialize_faiss, load_all_jsons, get_conversation_history, save_uploaded_file
@@ -15,6 +17,7 @@ from database import get_db
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+logger = logging.getLogger(__name__)
 
 # Variable globale pour stocker l'index FAISS
 _vectorstore = None
@@ -23,12 +26,42 @@ def get_vectorstore(openai_api_key: str):
     """Obtenir l'index FAISS (initialisé une seule fois)"""
     global _vectorstore
     if _vectorstore is None:
-        print("🔄 Initialisation de l'index FAISS...")
+        logger.info("\ud83d\udd04 Initialisation de l'index FAISS...")
         _vectorstore = initialize_faiss(openai_api_key)
-        print("✅ Index FAISS initialisé avec succès")
+        logger.info("\u2705 Index FAISS initialisé avec succ\u00e8s")
     else:
-        print("📚 Utilisation de l'index FAISS existant")
+        logger.info("\ud83d\udcda Utilisation de l'index FAISS existant")
     return _vectorstore
+
+
+def get_or_create_conversation(
+    db: Session,
+    user: User,
+    conversation_id: Optional[str],
+    client_name: str,
+) -> Conversation:
+    """Récupérer une conversation existante ou en créer une nouvelle."""
+    conversation = None
+    if conversation_id and conversation_id != "temp":
+        try:
+            conv_id = int(conversation_id)
+            conversation = (
+                db.query(Conversation).filter(Conversation.id == conv_id).first()
+            )
+        except (ValueError, TypeError):
+            conversation = None
+
+    if not conversation:
+        conversation = Conversation(
+            client_name=client_name,
+            status="nouveau",
+            user_id=user.id,
+        )
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+
+    return conversation
 
 # Route de connexion (GET)
 @router.get("/login", response_class=HTMLResponse, response_model=None)
@@ -169,7 +202,11 @@ async def conversations_list(
                             conversation.client_name = user.username
                     else:
                         conversation.client_name = user.username
-                except:
+                except Exception as e:
+                    logger.error(
+                        "Erreur lors du chargement des informations client : %s",
+                        e,
+                    )
                     conversation.client_name = user.username
             else:
                 conversation.client_name = "Utilisateur inconnu"
@@ -272,8 +309,14 @@ async def chat_page(
     
     # Récupérer les informations du client
     try:
-        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user, db=db)
-    except:
+        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(
+            user=current_user, db=db
+        )
+    except Exception as e:
+        logger.error(
+            "Erreur lors du chargement des informations client : %s",
+            e,
+        )
         client_json = {}
     
     return templates.TemplateResponse(
@@ -330,26 +373,12 @@ async def send_message(
                     client_name = nom
         
         # Récupérer ou créer une conversation
-        if conversation_id and conversation_id != "temp":
-            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            if not conversation:
-                conversation = Conversation(
-                    client_name=client_name,
-                    status="nouveau",
-                    user_id=current_user.id
-                )
-                db.add(conversation)
-                db.commit()
-                db.refresh(conversation)
-        else:
-            conversation = Conversation(
-                client_name=client_name,
-                status="nouveau",
-                user_id=current_user.id
-            )
-            db.add(conversation)
-            db.commit()
-            db.refresh(conversation)
+        conversation = get_or_create_conversation(
+            db=db,
+            user=current_user,
+            conversation_id=conversation_id,
+            client_name=client_name,
+        )
         
         # Initialiser LLM et FAISS
         from langchain_openai import ChatOpenAI
@@ -373,10 +402,10 @@ async def send_message(
         try:
             faiss_results = vectorstore.similarity_search(user_input, k=5)  # Récupérer 5 résultats
             faiss_context = "\n".join([doc.page_content for doc in faiss_results])
-            print(f"Résultats FAISS trouvés: {len(faiss_results)}")
+            logger.info("R\xc3\xa9sultats FAISS trouv\xc3\xa9s: %d", len(faiss_results))
         except Exception as e:
-            print(f"Erreur recherche FAISS: {e}")
-            faiss_context = "Informations générales PROFERM: spécialiste des portes d'entrée, vitrages et stores."
+            logger.error("Erreur recherche FAISS: %s", e)
+            faiss_context = "Informations g\xc3\xa9n\xc3\xa9rales PROFERM: sp\xc3\xa9cialiste des portes d'entr\xc3\xa9e, vitrages et stores."
         
         # Préparer le contexte
         history_text = get_conversation_history(conversation.history)
@@ -486,32 +515,25 @@ async def upload_images(
         if not openai_api_key:
             raise HTTPException(status_code=500, detail="Clé API OpenAI non configurée")
         
-        # Récupérer ou créer conversation
-        if conversation_id == "temp":
-            preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user)
-            client_name = "Client"
-            if client_json and isinstance(client_json, dict):
-                if 'client_informations' in client_json:
-                    client_info = client_json['client_informations']
-                    nom = client_info.get('nom', '')
-                    prenom = client_info.get('prenom', '')
-                    if nom and prenom:
-                        client_name = f"{prenom} {nom}"
-                    elif nom:
-                        client_name = nom
-            
-            conversation = Conversation(
-                client_name=client_name,
-                status="nouveau",
-                user_id=current_user.id
-            )
-            db.add(conversation)
-            db.commit()
-            db.refresh(conversation)
-        else:
-            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            if not conversation:
-                raise HTTPException(status_code=404, detail="Conversation non trouvée")
+        # Charger les informations client et récupérer ou créer la conversation
+        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user)
+        client_name = "Client"
+        if client_json and isinstance(client_json, dict):
+            if 'client_informations' in client_json:
+                client_info = client_json['client_informations']
+                nom = client_info.get('nom', '')
+                prenom = client_info.get('prenom', '')
+                if nom and prenom:
+                    client_name = f"{prenom} {nom}"
+                elif nom:
+                    client_name = nom
+
+        conversation = get_or_create_conversation(
+            db=db,
+            user=current_user,
+            conversation_id=conversation_id,
+            client_name=client_name,
+        )
         
         # Sauvegarder les images
         image_paths = []
