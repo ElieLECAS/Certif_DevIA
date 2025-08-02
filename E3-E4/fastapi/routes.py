@@ -33,6 +33,36 @@ def get_vectorstore(openai_api_key: str):
         print("📚 Utilisation de l'index FAISS existant")
     return _vectorstore
 
+
+def get_or_create_conversation(
+    db: Session,
+    user: User,
+    conversation_id: Optional[str],
+    client_name: str,
+) -> Conversation:
+    """Récupérer une conversation existante ou en créer une nouvelle."""
+    conversation = None
+    if conversation_id and conversation_id != "temp":
+        try:
+            conv_id = int(conversation_id)
+            conversation = (
+                db.query(Conversation).filter(Conversation.id == conv_id).first()
+            )
+        except (ValueError, TypeError):
+            conversation = None
+
+    if not conversation:
+        conversation = Conversation(
+            client_name=client_name,
+            status="nouveau",
+            user_id=user.id,
+        )
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+
+    return conversation
+
 # Route de connexion (GET)
 @router.get("/login", response_class=HTMLResponse, response_model=None)
 async def login_page(request: Request):
@@ -333,26 +363,12 @@ async def send_message(
                     client_name = nom
         
         # Récupérer ou créer une conversation
-        if conversation_id and conversation_id != "temp":
-            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            if not conversation:
-                conversation = Conversation(
-                    client_name=client_name,
-                    status="nouveau",
-                    user_id=current_user.id
-                )
-                db.add(conversation)
-                db.commit()
-                db.refresh(conversation)
-        else:
-            conversation = Conversation(
-                client_name=client_name,
-                status="nouveau",
-                user_id=current_user.id
-            )
-            db.add(conversation)
-            db.commit()
-            db.refresh(conversation)
+        conversation = get_or_create_conversation(
+            db=db,
+            user=current_user,
+            conversation_id=conversation_id,
+            client_name=client_name,
+        )
         
         # Initialiser LLM et FAISS
         from langchain_openai import ChatOpenAI
@@ -489,32 +505,25 @@ async def upload_images(
         if not openai_api_key:
             raise HTTPException(status_code=500, detail="Clé API OpenAI non configurée")
         
-        # Récupérer ou créer conversation
-        if conversation_id == "temp":
-            preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user)
-            client_name = "Client"
-            if client_json and isinstance(client_json, dict):
-                if 'client_informations' in client_json:
-                    client_info = client_json['client_informations']
-                    nom = client_info.get('nom', '')
-                    prenom = client_info.get('prenom', '')
-                    if nom and prenom:
-                        client_name = f"{prenom} {nom}"
-                    elif nom:
-                        client_name = nom
-            
-            conversation = Conversation(
-                client_name=client_name,
-                status="nouveau",
-                user_id=current_user.id
-            )
-            db.add(conversation)
-            db.commit()
-            db.refresh(conversation)
-        else:
-            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            if not conversation:
-                raise HTTPException(status_code=404, detail="Conversation non trouvée")
+        # Charger les informations client et récupérer ou créer la conversation
+        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user)
+        client_name = "Client"
+        if client_json and isinstance(client_json, dict):
+            if 'client_informations' in client_json:
+                client_info = client_json['client_informations']
+                nom = client_info.get('nom', '')
+                prenom = client_info.get('prenom', '')
+                if nom and prenom:
+                    client_name = f"{prenom} {nom}"
+                elif nom:
+                    client_name = nom
+
+        conversation = get_or_create_conversation(
+            db=db,
+            user=current_user,
+            conversation_id=conversation_id,
+            client_name=client_name,
+        )
         
         # Sauvegarder les images
         image_paths = []
