@@ -1,18 +1,58 @@
 import os
 import json
-import fitz  # PyMuPDF
-from pathlib import Path
-from typing import Dict, Any, List, Tuple
+import logging
+from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Tuple
+
 import aiofiles
 from fastapi import UploadFile
 
+import fitz  # PyMuPDF
 from langchain_text_splitters import CharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain.chains.retrieval import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain import hub
+
+
+logger = logging.getLogger(__name__)
+
+PREPROMPTS_DIR = Path("RAG/preprompts")
+CATALOGUES_DIR = Path("RAG/Catalogues")
+FAISS_INDEX_DIR = Path("faiss_index_pdf")
+
+
+@dataclass
+class Historique:
+    nb_commandes: int = 0
+    derniere_commande: str = ""
+    interventions_precedentes: List[str] = field(default_factory=list)
+
+
+@dataclass
+class ClientInformations:
+    id: int
+    nom: str
+    prenom: str
+    adresse: str = ""
+    telephone: str = ""
+    email: str = ""
+    date_creation: str = ""
+    historique: Historique = field(default_factory=Historique)
+
+
+@dataclass
+class Commande:
+    id_commande: str
+    date: str
+    produits: str
+    statut: str
+    montant_ht: float
+    montant_ttc: float
+    adresse_livraison: str
+    notes: str = ""
+    date_livraison: str = ""
+    garantie_jusqu_au: str = ""
 
 # Fonction pour sauvegarder l'image téléchargée
 async def save_uploaded_file(uploaded_file: UploadFile) -> str:
@@ -20,6 +60,15 @@ async def save_uploaded_file(uploaded_file: UploadFile) -> str:
     Sauvegarder un fichier uploadé et retourner le chemin
     """
     try:
+        # Validation du type de fichier
+        if not uploaded_file.content_type or not uploaded_file.content_type.startswith('image/'):
+            raise ValueError(f"Type de fichier non autorisé: {uploaded_file.content_type}")
+        
+        # Validation de la taille du fichier (max 10MB)
+        content = await uploaded_file.read()
+        if len(content) > 10 * 1024 * 1024:  # 10MB
+            raise ValueError("Fichier trop volumineux (max 10MB)")
+        
         # Créer le dossier uploads s'il n'existe pas
         upload_dir = Path("uploads/uploaded_images")
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -31,21 +80,20 @@ async def save_uploaded_file(uploaded_file: UploadFile) -> str:
         
         # Sauvegarder le fichier
         async with aiofiles.open(file_path, 'wb') as f:
-            content = await uploaded_file.read()
             await f.write(content)
         
         # Retourner l'URL relative pour l'accès via navigateur
         return f"/uploads/uploaded_images/{filename}"
         
     except Exception as e:
-        print(f"Erreur lors de la sauvegarde du fichier: {e}")
+        logger.error("Erreur lors de la sauvegarde du fichier: %s", e)
         raise Exception(f"Impossible de sauvegarder le fichier: {e}")
 
 # Fonction pour lire un fichier JSON
-def load_json(file_path: str) -> Dict:
+def load_json(file_path: Path) -> Dict:
     """Charger un fichier JSON"""
-    if os.path.exists(file_path):
-        with open(file_path, 'r', encoding='utf-8') as file:
+    if file_path.exists():
+        with file_path.open("r", encoding="utf-8") as file:
             return json.load(file)
     return {}
 
@@ -54,8 +102,8 @@ def load_all_jsons(user=None, db=None) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
     Charger tous les fichiers JSON nécessaires pour le contexte
     """
     try:
-        # Chemins vers les fichiers JSON (adaptés de la structure Django)
-        base_path = Path("RAG/preprompts")
+        # Chemins vers les fichiers JSON
+        base_path = PREPROMPTS_DIR
         
         # S'assurer que le répertoire existe
         base_path.mkdir(parents=True, exist_ok=True)
@@ -65,7 +113,7 @@ def load_all_jsons(user=None, db=None) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
         retours_path = base_path / "protocole_retour.json"
         
         # Charger les fichiers s'ils existent, sinon retourner des objets par défaut
-        preprompt = load_json(str(preprompt_path)) if preprompt_path.exists() else {
+        preprompt = load_json(preprompt_path) if preprompt_path.exists() else {
             "content": "Vous êtes un assistant SAV professionnel."
         }
         
@@ -119,12 +167,12 @@ def load_all_jsons(user=None, db=None) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
                 
                 # Créer l'objet commandes
                 commandes = {"commandes": commandes_list}
-                
-                print(f"✅ Chargement des infos client et commandes pour {user.username} depuis la BDD")
-                print(f"   📦 {len(user_commandes)} commandes trouvées")
+
+                logger.info("Chargement des infos client et commandes pour %s depuis la BDD", user.username)
+                logger.info("%d commandes trouvées", len(user_commandes))
                 
             except Exception as e:
-                print(f"Erreur lors de la récupération des données client depuis la BDD: {e}")
+                logger.error("Erreur lors de la récupération des données client depuis la BDD: %s", e)
                 # En cas d'erreur, créer des objets par défaut
                 client_info = {
                     "client_informations": {
@@ -159,13 +207,13 @@ def load_all_jsons(user=None, db=None) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
             }
             commandes = {"commandes": []}
         
-        renseignements = load_json(str(renseignements_path)) if renseignements_path.exists() else {}
-        retours = load_json(str(retours_path)) if retours_path.exists() else {}
+        renseignements = load_json(renseignements_path) if renseignements_path.exists() else {}
+        retours = load_json(retours_path) if retours_path.exists() else {}
         
         return preprompt, client_info, renseignements, retours, commandes
         
     except Exception as e:
-        print(f"Erreur lors du chargement des données: {e}")
+        logger.error("Erreur lors du chargement des données: %s", e)
         # Retourner des valeurs par défaut en cas d'erreur
         return (
             {"content": "Assistant SAV"},
@@ -176,14 +224,14 @@ def load_all_jsons(user=None, db=None) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
         )
 
 # Initialiser ou charger l'index FAISS
-def initialize_faiss(openai_api_key: str):
+def initialize_faiss(openai_api_key: str, *, chunk_size: int = 1500, chunk_overlap: int = 200):
     """
     Initialiser FAISS avec des documents PDF pour le SAV
     """
     try:
         embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
-        pdf_directory = Path("RAG/Catalogues")
-        faiss_index_path = Path("faiss_index_pdf")
+        pdf_directory = CATALOGUES_DIR
+        faiss_index_path = FAISS_INDEX_DIR
         
         # Créer les répertoires s'ils n'existent pas
         pdf_directory.mkdir(parents=True, exist_ok=True)
@@ -197,10 +245,10 @@ def initialize_faiss(openai_api_key: str):
             
             # Charger les documents PDF
             if pdf_files:
-                print(f"Chargement de {len(pdf_files)} fichiers PDF...")
+                logger.info("Chargement de %d fichiers PDF...", len(pdf_files))
                 for pdf_file in pdf_files:
                     try:
-                        print(f"Traitement de {pdf_file.name}...")
+                        logger.debug("Traitement de %s...", pdf_file.name)
                         with fitz.open(str(pdf_file)) as pdf_doc:
                             text = f"=== DOCUMENT: {pdf_file.name} ===\n"
                             for page_num, page in enumerate(pdf_doc):
@@ -208,19 +256,19 @@ def initialize_faiss(openai_api_key: str):
                                 if page_text.strip():  # Ne pas ajouter de pages vides
                                     text += f"\n--- Page {page_num + 1} ---\n{page_text}\n"
                             all_documents.append(text)
-                            print(f"✓ {pdf_file.name} traité ({len(text)} caractères)")
+                            logger.debug("%s traité (%d caractères)", pdf_file.name, len(text))
                     except Exception as e:
-                        print(f"❌ Erreur lors de la lecture du PDF {pdf_file.name}: {str(e)}")
+                        logger.warning("Erreur lors de la lecture du PDF %s: %s", pdf_file.name, e)
             else:
-                print("Aucun fichier PDF trouvé dans le dossier Catalogues")
+                logger.info("Aucun fichier PDF trouvé dans le dossier Catalogues")
             
             # S'il y a des documents à indexer
             if all_documents:
-                print(f"Indexation de {len(all_documents)} documents...")
+                logger.info("Indexation de %d documents...", len(all_documents))
                 # Fractionner les documents en parties gérables
                 text_splitter = CharacterTextSplitter(
-                    chunk_size=1500, 
-                    chunk_overlap=200, 
+                    chunk_size=chunk_size,
+                    chunk_overlap=chunk_overlap,
                     separator="\n",
                     length_function=len
                 )
@@ -231,15 +279,15 @@ def initialize_faiss(openai_api_key: str):
                     chunks = text_splitter.split_text(doc)
                     all_chunks.extend(chunks)
                 
-                print(f"Création de l'index FAISS avec {len(all_chunks)} chunks...")
+                logger.info("Création de l'index FAISS avec %d chunks...", len(all_chunks))
                 # Créer un vectorstore depuis les documents
                 vectorstore = FAISS.from_texts(all_chunks, embeddings)
                 faiss_index_path.mkdir(parents=True, exist_ok=True)
                 vectorstore.save_local(str(faiss_index_path))
-                print(f"✓ Index FAISS créé et sauvegardé dans {faiss_index_path}")
+                logger.info("Index FAISS créé et sauvegardé dans %s", faiss_index_path)
             else:
                 # Créer un vectorstore avec des documents par défaut s'il n'y a pas de PDFs
-                print("Aucun document PDF trouvé, utilisation des documents par défaut")
+                logger.info("Aucun document PDF trouvé, utilisation des documents par défaut")
                 default_documents = [
                     "PROFERM est spécialisé dans les portes d'entrée, les vitrages et les stores.",
                     "La gamme LUMEAL propose des solutions d'éclairage intégrées pour les portes d'entrée.",
@@ -255,13 +303,13 @@ def initialize_faiss(openai_api_key: str):
                 faiss_index_path.mkdir(parents=True, exist_ok=True)
                 vectorstore.save_local(str(faiss_index_path))
         else:
-            print(f"Chargement de l'index FAISS existant depuis {faiss_index_path}")
+            logger.info("Chargement de l'index FAISS existant depuis %s", faiss_index_path)
             vectorstore = FAISS.load_local(str(faiss_index_path), embeddings, allow_dangerous_deserialization=True)
         
         return vectorstore
         
     except Exception as e:
-        print(f"Erreur lors de l'initialisation de FAISS: {e}")
+        logger.error("Erreur lors de l'initialisation de FAISS: %s", e)
         # Retourner un vectorstore minimal en cas d'erreur
         embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
         default_documents = ["Assistant SAV disponible pour vous aider."]
@@ -269,28 +317,10 @@ def initialize_faiss(openai_api_key: str):
 
 # Obtenir l'historique de conversation au format texte
 def get_conversation_history(conversation_history: List[Dict]) -> str:
-    """
-    Convertir l'historique de conversation en texte
-    """
-    if not conversation_history:
-        return ""
-    
-    history = ""
-    for message in conversation_history:
-        role = message.get('role', '')
-        content = message.get('content', '')
-        
-        if role == 'user':
-            history += f"User: {content}\n"
-        elif role == 'assistant':
-            history += f"Assistant: {content}\n"
-        elif role == 'system':
-            history += f"System: {content}\n"
-    
-    return history
-
-
-
-
-        
+    """Convertir l'historique de conversation en texte."""
+    prefixes = {"user": "User", "assistant": "Assistant", "system": "System"}
+    return "\n".join(
+        f"{prefixes.get(m.get('role'), '')}: {m.get('content', '')}"
+        for m in conversation_history if m.get('content')
+    )
  

@@ -7,7 +7,7 @@ from langchain_utils import (
     save_uploaded_file
 )
 from fastapi import UploadFile
-import os
+from utils import get_openai_api_key, MISSING_OPENAI_KEY_MSG
 from pathlib import Path
 
 class TestLangChainIntegration:
@@ -111,13 +111,12 @@ class TestAIIntegration:
     
     def test_openai_configuration(self):
         """Test de configuration OpenAI"""
-        # Vérifier que les variables d'environnement sont définies
-        api_key = os.getenv("OPENAI_API_KEY")
-        if api_key:
+        # Vérifier que les variables d'environnement sont définies via l'utilitaire
+        try:
+            api_key = get_openai_api_key()
             assert len(api_key) > 0
-        else:
-            # Si pas de clé API, c'est normal pour les tests
-            pass
+        except EnvironmentError as e:
+            assert str(e) == MISSING_OPENAI_KEY_MSG
     
     def test_faiss_index_existence(self):
         """Test de l'existence de l'index FAISS"""
