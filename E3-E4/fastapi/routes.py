@@ -98,9 +98,9 @@ async def login(
     # Vérifier si l'utilisateur est un client
     client_user = get_client_user(db, user)
     if client_user and client_user.is_client_only:
-        response = RedirectResponse(url="/client_home", status_code=status.HTTP_302_FOUND)
+        response = RedirectResponse(url="/client_home", status_code=302)
     else:
-        response = RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
+        response = RedirectResponse(url="/dashboard", status_code=302)
     
     response.set_cookie(
         key="access_token",
@@ -114,7 +114,7 @@ async def login(
 # Route de déconnexion
 @router.get("/logout", response_model=None)
 async def logout():
-    response = RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie(key="access_token")
     return response
 
@@ -163,7 +163,7 @@ async def register(
     db.add(client_user)
     db.commit()
     
-    return RedirectResponse(url="/login?message=Compte créé avec succès", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(url="/login?message=Compte créé avec succès", status_code=302)
 
 # Route liste des conversations (pour les admins)
 @router.get("/conversations", response_class=HTMLResponse, response_model=None)
@@ -177,7 +177,7 @@ async def conversations_list(
     if not is_staff_or_admin(current_user):
         client_user = get_client_user(db, current_user)
         if client_user and client_user.is_client_only:
-            return RedirectResponse(url="/client_home", status_code=status.HTTP_302_FOUND)
+            return RedirectResponse(url="/client_home", status_code=302)
     
     # Récupérer les conversations
     query = db.query(Conversation)
@@ -246,9 +246,9 @@ async def conversation_detail(
     conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not conversation:
         if is_staff_or_admin(current_user):
-            return RedirectResponse(url="/conversations", status_code=status.HTTP_302_FOUND)
+            return RedirectResponse(url="/conversations", status_code=302)
         else:
-            return RedirectResponse(url="/client_home", status_code=status.HTTP_302_FOUND)
+            return RedirectResponse(url="/client_home", status_code=302)
     
     # Vérifier les permissions
     if not is_staff_or_admin(current_user):
@@ -283,7 +283,7 @@ async def client_home(
 ):
     client_user = get_client_user(db, current_user)
     if not client_user:
-        return RedirectResponse(url="/conversations", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url="/conversations", status_code=302)
     
     # Récupérer les conversations du client
     query = db.query(Conversation).filter(Conversation.user_id == current_user.id)
@@ -713,7 +713,7 @@ async def update_conversation_status(
 # Route racine - redirection vers login
 @router.get("/", response_model=None)
 async def root():
-    return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(url="/login", status_code=302)
 
 # Route de test pour diagnostiquer les problèmes de DB
 @router.get("/test-db", response_model=None)
@@ -752,7 +752,7 @@ async def admin_dashboard(
 ):
     # Vérifier les permissions (seuls les admins peuvent accéder au dashboard)
     if not is_staff_or_admin(current_user):
-        return RedirectResponse(url="/client_home", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url="/client_home", status_code=302)
     
     # Statistiques générales
     total_conversations = db.query(Conversation).count()

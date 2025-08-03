@@ -152,7 +152,7 @@ Thumbs.db
 .dockerignore
 *.tar
 *.pid
-
+uploads/
 # Base de données
 *.sqlite
 *.sqlite3

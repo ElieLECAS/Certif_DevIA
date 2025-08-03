@@ -21,7 +21,7 @@ def test_post_login(client):
         follow_redirects=False,
     )
     assert response.status_code == 302
-    assert response.headers["location"] == "/conversations"
+    assert response.headers["location"] == "/dashboard"
 
 
 def test_post_register(client):
