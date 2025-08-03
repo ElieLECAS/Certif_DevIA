@@ -307,21 +307,34 @@ async def client_home(
 @router.get("/chat", response_class=HTMLResponse, response_model=None)
 async def chat_page(
     request: Request,
+    conversation_id: Optional[str] = None,  # Récupérer conversation_id depuis l'URL
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    # Récupérer la conversation active
-    conversation_id = "temp"
+    # Récupérer la conversation depuis l'URL ou la conversation active
     history = "[]"
     
-    client_user = get_client_user(db, current_user)
-    if client_user and client_user.active_conversation_id:
-        conversation = db.query(Conversation).filter(
-            Conversation.id == client_user.active_conversation_id
-        ).first()
-        if conversation:
-            conversation_id = conversation.id
-            history = json.dumps(conversation.history)
+    # Priorité 1: conversation_id depuis l'URL
+    if conversation_id and conversation_id != "temp":
+        try:
+            conv_id = int(conversation_id)
+            conversation = db.query(Conversation).filter(Conversation.id == conv_id).first()
+            if conversation:
+                history = json.dumps(conversation.history)
+        except (ValueError, TypeError):
+            conversation_id = "temp"
+    
+    # Priorité 2: conversation active du client si pas d'URL
+    if not conversation_id or conversation_id == "temp":
+        conversation_id = "temp"
+        client_user = get_client_user(db, current_user)
+        if client_user and client_user.active_conversation_id:
+            conversation = db.query(Conversation).filter(
+                Conversation.id == client_user.active_conversation_id
+            ).first()
+            if conversation:
+                conversation_id = conversation.id
+                history = json.dumps(conversation.history)
     
     # Récupérer les informations du client
     try:
@@ -405,18 +418,24 @@ async def send_message(
         llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.4)
         vectorstore = get_vectorstore(openai_api_key)
         
-        # Ajouter le message utilisateur
+        # Ajouter le message utilisateur (comme Django)
         conversation.add_message("user", user_input)
         
-        # Ajouter les prompts système si c'est le premier message
-        if len(conversation.history) <= 1:
+        # Récupérer l'historique complet
+        conversation_history = conversation.history
+        
+        # Ajouter les prompts système s'ils n'existent pas déjà (EXACTEMENT comme Django)
+        if len(conversation_history) <= 1:  # Seulement le message utilisateur qu'on vient d'ajouter
             system_prompts = [
                 {"role": "system", "content": preprompt.get("content", "Vous êtes un assistant virtuel serviable et professionnel.")},
                 {"role": "system", "content": json.dumps(client_json)},
                 {"role": "system", "content": json.dumps(retours)},
                 {"role": "system", "content": json.dumps(commandes)}
             ]
-            conversation.history = system_prompts + conversation.history
+            # Insérer au début de l'historique (comme Django)
+            conversation.history = system_prompts + conversation_history
+            db.commit()  # Sauvegarder
+            conversation_history = conversation.history
         
         # Recherche FAISS améliorée
         try:
@@ -427,18 +446,14 @@ async def send_message(
             logger.error("Erreur recherche FAISS: %s", e)
             faiss_context = "Informations g\xc3\xa9n\xc3\xa9rales PROFERM: sp\xc3\xa9cialiste des portes d'entr\xc3\xa9e, vitrages et stores."
         
-        # Préparer le contexte
-        history_text = get_conversation_history(conversation.history)
-        complete_context = (
-            f"{history_text}\n\n"
-            f"Informations des catalogues PROFERM:\n{faiss_context}\n\n"
-            f"Instructions: Utilisez les informations des catalogues PROFERM ci-dessus pour répondre aux questions sur nos produits. "
-            f"Si vous ne trouvez pas d'informations spécifiques, redirigez poliment vers notre service client.\n\n"
-            f"User: {user_input}"
-        )
+        # Convertir l'historique de conversation en texte (comme Django)
+        history_text = get_conversation_history(conversation_history)
         
-        # Obtenir la réponse
-        response = llm.invoke(complete_context)
+        # Préparer le contexte complet (EXACTEMENT comme Django)
+        complete_context = history_text + "\nContext from FAISS:\n" + faiss_context
+        
+        # Obtenir la réponse du modèle (EXACTEMENT comme Django)
+        response = llm.invoke(complete_context + "\nUser: " + user_input)
         assistant_response = response.content if hasattr(response, 'content') else "Aucune réponse trouvée."
         
         # Ajouter la réponse
