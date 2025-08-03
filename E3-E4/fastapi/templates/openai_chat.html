@@ -167,14 +167,12 @@
 {% endblock %} {% block content %}
 <div
     class="chat-layout"
-    {%
-    if
-    current_conversation
-    %}data-conversation-id="{{ current_conversation.id }}"
-    {%
-    endif
-    %}
-    data-conversation-status="{% if current_conversation %}{{ current_conversation.status }}{% else %}nouveau{% endif %}"
+    {% if current_conversation %}
+    data-conversation-id="{{ current_conversation.id }}"
+    data-conversation-status="{{ current_conversation.status }}"
+    {% else %}
+    data-conversation-status="nouveau"
+    {% endif %}
 >
     <div class="chat-container">
         <div class="chat-header">

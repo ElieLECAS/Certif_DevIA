@@ -311,30 +311,26 @@ async def chat_page(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    # Récupérer la conversation depuis l'URL ou la conversation active
-    history = "[]"
-    
-    # Priorité 1: conversation_id depuis l'URL
+    """Afficher la page de chat avec l'historique éventuel."""
+    conversation = None
+
+    # Priorité 1 : utiliser l'identifiant fourni dans l'URL
     if conversation_id and conversation_id != "temp":
         try:
             conv_id = int(conversation_id)
-            conversation = db.query(Conversation).filter(Conversation.id == conv_id).first()
-            if conversation:
-                history = json.dumps(conversation.history)
+            conversation = (
+                db.query(Conversation).filter(Conversation.id == conv_id).first()
+            )
         except (ValueError, TypeError):
-            conversation_id = "temp"
-    
-    # Priorité 2: conversation active du client si pas d'URL
-    if not conversation_id or conversation_id == "temp":
-        conversation_id = "temp"
+            conversation = None
+
+    # Priorité 2 : conversation active du client si aucune fournie
+    if conversation is None:
         client_user = get_client_user(db, current_user)
         if client_user and client_user.active_conversation_id:
             conversation = db.query(Conversation).filter(
                 Conversation.id == client_user.active_conversation_id
             ).first()
-            if conversation:
-                conversation_id = conversation.id
-                history = json.dumps(conversation.history)
     
     # Récupérer les informations du client
     try:
@@ -353,10 +349,9 @@ async def chat_page(
         {
             "request": request,
             "user": current_user,
-            "conversation_id": conversation_id,
-            "history": history,
-            "client_info": client_json
-        }
+            "current_conversation": conversation,
+            "client_info": client_json,
+        },
     )
 
 # API endpoint pour envoyer un message
