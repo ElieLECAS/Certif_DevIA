@@ -1,5 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, JSON, ForeignKey, Float
 from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.ext.mutable import MutableList
+from sqlalchemy.orm.attributes import flag_modified
 from datetime import datetime
 
 Base = declarative_base()
@@ -46,7 +48,7 @@ class Conversation(Base):
     id = Column(Integer, primary_key=True, index=True)
     client_name = Column(String, nullable=False)
     status = Column(String, default="nouveau")  # nouveau, en_cours, termine
-    history = Column(JSON, default=list)
+    history = Column(MutableList.as_mutable(JSON), default=list)
     summary = Column(Text, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -70,6 +72,7 @@ class Conversation(Base):
             message["image_path"] = image_path
             
         self.history.append(message)
+        flag_modified(self, "history")
     
     def set_status(self, new_status: str):
         """Changer le statut de la conversation"""
