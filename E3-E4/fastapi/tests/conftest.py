@@ -1,22 +1,44 @@
+from pathlib import Path
+import os
+import sys
+import asyncio
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from _pytest.monkeypatch import MonkeyPatch
 
-from app import app
-from database import get_db
-from models import Base, User, Conversation, ClientUser
-from auth import get_password_hash
+# Ensure project root is on sys.path and as working directory
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+ORIG_CWD = Path.cwd()
+os.chdir(PROJECT_ROOT)
 
-# Base de données de test en mémoire
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+from models import Base, User, Conversation
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+_session_mp = MonkeyPatch()
+_session_mp.setenv("SECRET_KEY", "test-secret")
+_session_mp.setenv("DATABASE_URL", "sqlite://")
+_session_mp.setenv("ADMIN_USERNAME", "admin")
+_session_mp.setenv("ADMIN_EMAIL", "admin@example.com")
+_session_mp.setenv("ADMIN_PASSWORD", "adminpass")
+
+
+def pytest_sessionfinish(session, exitstatus):
+    _session_mp.undo()
+    os.chdir(ORIG_CWD)
+@pytest.fixture(autouse=True)
+def set_test_env(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "test-secret")
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("ADMIN_EMAIL", "admin@example.com")
+    monkeypatch.setenv("ADMIN_PASSWORD", "adminpass")
+
+# In-memory SQLite database for tests
+database_url = "sqlite://"
+engine = create_engine(database_url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def override_get_db():
@@ -26,12 +48,21 @@ def override_get_db():
     finally:
         db.close()
 
-# Override de la dépendance de base de données
-app.dependency_overrides[get_db] = override_get_db
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
+def app(set_test_env):
+    from database import get_db
+    from app import app as fastapi_app
+
+    fastapi_app.dependency_overrides[get_db] = override_get_db
+    try:
+        yield fastapi_app
+    finally:
+        fastapi_app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture()
 def db():
-    """Fixture pour la base de données de test"""
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     try:
@@ -40,89 +71,60 @@ def db():
         db.close()
         Base.metadata.drop_all(bind=engine)
 
-@pytest.fixture(scope="function")
-def client():
-    """Fixture pour le client de test FastAPI"""
-    # Créer un client de test simple sans TestClient
-    class SimpleTestClient:
-        def __init__(self, app):
-            self.app = app
-        
-        def get(self, url, **kwargs):
-            return {"status_code": 200, "url": url}
-        
-        def post(self, url, **kwargs):
-            return {"status_code": 200, "url": url}
-        
-        def put(self, url, **kwargs):
-            return {"status_code": 200, "url": url}
-        
-        def delete(self, url, **kwargs):
-            return {"status_code": 200, "url": url}
-    
-    return SimpleTestClient(app)
-
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def test_user(db):
-    """Créer un utilisateur de test"""
-    user = User(
-        username="testuser",
-        email="test@example.com",
-        hashed_password=get_password_hash("testpass"),
-        is_active=True,
-        is_staff=False,
-        is_superuser=False
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return {"username": "testuser", "password": "testpass", "id": user.id}
+    from auth import get_password_hash
 
-@pytest.fixture(scope="function")
-def test_admin_user(db):
-    """Créer un utilisateur admin de test"""
     user = User(
-        username="admin_test",
-        email="admin@test.com",
-        hashed_password=get_password_hash("admin123"),
+        username="tester",
+        email="tester@example.com",
+        hashed_password=get_password_hash("password"),
         is_active=True,
         is_staff=True,
-        is_superuser=True
+        is_superuser=False,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {"username": "admin_test", "password": "admin123", "id": user.id}
+    return user
 
-@pytest.fixture(scope="function")
-def test_conversation(db, test_user):
-    """Créer une conversation de test"""
-    conversation = Conversation(
-        client_name="Test Client",
-        status="nouveau",
-        user_id=test_user["id"]
-    )
-    db.add(conversation)
+@pytest.fixture()
+def client(app, db, test_user):
+    from auth import get_current_active_user
+
+    def override_current_active_user():
+        return test_user
+
+    app.dependency_overrides[get_current_active_user] = override_current_active_user
+    transport = ASGITransport(app=app)
+    client = AsyncClient(transport=transport, base_url="http://testserver")
+
+    class _SyncClient:
+        def __enter__(self_inner):
+            return self_inner
+
+        def __exit__(self_inner, exc_type, exc, tb):
+            asyncio.run(client.aclose())
+
+        def request(self_inner, method, url, **kwargs):
+            if "allow_redirects" in kwargs:
+                kwargs["follow_redirects"] = kwargs.pop("allow_redirects")
+            return asyncio.run(client.request(method, url, **kwargs))
+
+        def get(self_inner, url, **kwargs):
+            return self_inner.request("GET", url, **kwargs)
+
+        def post(self_inner, url, **kwargs):
+            return self_inner.request("POST", url, **kwargs)
+
+    with _SyncClient() as c:
+        yield c
+    app.dependency_overrides.pop(get_current_active_user, None)
+
+@pytest.fixture()
+def conversation(db, test_user):
+    conv = Conversation(client_name="Client", status="nouveau", user_id=test_user.id)
+    db.add(conv)
     db.commit()
-    db.refresh(conversation)
-    return conversation
-
-@pytest.fixture(scope="function")
-def authenticated_client(client, test_user):
-    """Client authentifié avec un utilisateur de test"""
-    # Se connecter
-    response = client.post("/login", data={
-        "username": test_user["username"],
-        "password": test_user["password"]
-    })
-    return client
-
-@pytest.fixture(scope="function")
-def authenticated_admin_client(client, test_admin_user):
-    """Client authentifié avec un admin de test"""
-    # Se connecter
-    response = client.post("/login", data={
-        "username": test_admin_user["username"],
-        "password": test_admin_user["password"]
-    })
-    return client 
+    db.refresh(conv)
+    return conv

@@ -8,8 +8,8 @@ sqlalchemy
 
 # Authentification et sécurité
 python-jose[cryptography]==3.3.0
-bcrypt==4.1.2
-passlib
+bcrypt==4.0.1
+passlib[bcrypt]
 python-multipart==0.0.6
 
 # Templates et interface
@@ -40,6 +40,7 @@ joblib
 
 # Requêtes HTTP
 requests
+httpx<0.28
 
 # Tests (pour le développement)
 pytest>=7.4.0
@@ -54,4 +55,4 @@ fuzzywuzzy
 alembic==1.12.1
 
 # CORS (pour les requêtes cross-origin)
-fastapi-cors==0.0.6 
+fastapi-cors==0.0.6
