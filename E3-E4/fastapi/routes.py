@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, List
 import json
+import re
 from pathlib import Path
 import logging
 from models import User, ClientUser, Conversation
@@ -392,15 +393,10 @@ async def send_message(
             conversation_id=conversation_id,
             client_name=client_name,
         )
-        
-        # Initialiser LLM et FAISS
-        from langchain_openai import ChatOpenAI
-        llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.4)
-        vectorstore = get_vectorstore(openai_api_key)
-        
+
         # Ajouter le message utilisateur
         conversation.add_message("user", user_input)
-        
+
         # Ajouter les prompts système si c'est le premier message
         if len(conversation.history) <= 1:
             system_prompts = [
@@ -410,7 +406,38 @@ async def send_message(
                 {"role": "system", "content": json.dumps(commandes)}
             ]
             conversation.history = system_prompts + conversation.history
-        
+
+        # Détection du numéro de commande et de la position de châssis
+        confirmation_parts = []
+        order_match = re.search(r"CMD\d{4}-\d+", user_input, re.IGNORECASE)
+        if order_match:
+            conversation.numero_commande = order_match.group(0).upper()
+            confirmation_parts.append(f"numéro de commande {conversation.numero_commande}")
+        position_match = re.search(r"position\s*(?:ARC\s*)?(\d+)", user_input, re.IGNORECASE)
+        if position_match:
+            conversation.position_chassis = position_match.group(1)
+            confirmation_parts.append(f"position ARC {conversation.position_chassis}")
+        if confirmation_parts:
+            confirmation_message = " et ".join(confirmation_parts) + " confirmés"
+            conversation.add_message("system", confirmation_message)
+
+        if conversation.numero_commande and conversation.position_chassis:
+            for msg in conversation.history:
+                if msg.get("role") == "system":
+                    try:
+                        content_dict = json.loads(msg.get("content", "{}"))
+                    except json.JSONDecodeError:
+                        continue
+                    etapes = content_dict.get("etapes_sav_commande")
+                    if etapes and "etape_1" in etapes:
+                        del etapes["etape_1"]
+                        msg["content"] = json.dumps(content_dict)
+
+        # Initialiser LLM et FAISS
+        from langchain_openai import ChatOpenAI
+        llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.4)
+        vectorstore = get_vectorstore(openai_api_key)
+
         # Recherche FAISS améliorée
         try:
             faiss_results = vectorstore.similarity_search(user_input, k=5)  # Récupérer 5 résultats

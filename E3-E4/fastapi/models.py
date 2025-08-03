@@ -48,6 +48,8 @@ class Conversation(Base):
     status = Column(String, default="nouveau")  # nouveau, en_cours, termine
     history = Column(JSON, default=list)
     summary = Column(Text, nullable=True)
+    numero_commande = Column(String, nullable=True)
+    position_chassis = Column(String, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

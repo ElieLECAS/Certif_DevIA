@@ -107,3 +107,56 @@ def test_test_db_endpoint(client):
     data = response.json()
     assert "status" in data
     assert "message" in data
+
+
+def test_chat_skips_reasking_identifiers(client, db, monkeypatch):
+    import routes
+    import langchain_openai
+    from types import SimpleNamespace
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    contexts = []
+
+    class DummyLLM:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def invoke(self, ctx):
+            contexts.append(ctx)
+            return SimpleNamespace(content="ok")
+
+    class DummyVectorstore:
+        def similarity_search(self, query, k=5):
+            return []
+
+    dummy_vs = DummyVectorstore()
+    monkeypatch.setattr(langchain_openai, "ChatOpenAI", DummyLLM)
+    monkeypatch.setattr(routes, "get_vectorstore", lambda api_key: dummy_vs)
+
+    # Premier message sans identifiants -> etape_1 présente
+    resp1 = client.post("/api/chat", data={"message": "Bonjour", "conversation_id": "temp"})
+    assert resp1.status_code == 200
+    conv_id = str(resp1.json()["conversation_id"])
+    assert "etape_1" in contexts[-1]
+
+    # Fournir numéro de commande et position
+    resp2 = client.post(
+        "/api/chat",
+        data={"message": "Ma commande CMD2024-001 position 2", "conversation_id": conv_id},
+    )
+    assert resp2.status_code == 200
+    assert "etape_1" not in contexts[-1]
+
+    from models import Conversation as ConvModel
+
+    conv = db.query(ConvModel).filter_by(id=int(conv_id)).first()
+    assert conv.numero_commande == "CMD2024-001"
+    assert conv.position_chassis == "2"
+
+    # Message suivant : etape_1 toujours absente
+    resp3 = client.post(
+        "/api/chat", data={"message": "merci", "conversation_id": conv_id}
+    )
+    assert resp3.status_code == 200
+    assert "etape_1" not in contexts[-1]
