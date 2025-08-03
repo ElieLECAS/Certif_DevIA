@@ -1,4 +1,47 @@
-{% extends 'base.html' %} {% block content %}
+{% extends 'base.html' %} {% block extra_css %}
+<style>
+    .filters {
+        margin-bottom: 20px;
+    }
+    
+    .filters .btn {
+        margin-right: 0.5rem;
+    }
+    
+    .filters .btn:last-child {
+        margin-right: 0;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 0.25em 0.6em;
+        font-size: 75%;
+        font-weight: 700;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.25rem;
+    }
+    
+    .status-nouveau {
+        color: #fff;
+        background-color: #17a2b8;
+    }
+    
+    .status-en_cours {
+        color: #fff;
+        background-color: #007bff;
+    }
+    
+    .status-termine {
+        color: #fff;
+        background-color: #28a745;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
 <div class="container-fluid">
     <div class="row mb-4">
         <div class="col">
@@ -8,6 +51,26 @@
             <a href="/chat" class="btn btn-primary">
                 <i class="fas fa-plus-circle"></i> Nouvelle conversation
             </a>
+        </div>
+    </div>
+
+    <!-- Filtres de statut -->
+    <div class="row mb-3">
+        <div class="col">
+            <div class="filters">
+                <a href="/client_home" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline-primary{% endif %} mr-2">
+                    Toutes
+                </a>
+                <a href="/client_home?status=nouveau" class="btn btn-sm {% if status_filter == 'nouveau' %}btn-info{% else %}btn-outline-info{% endif %} mr-2">
+                    Nouvelles
+                </a>
+                <a href="/client_home?status=en_cours" class="btn btn-sm {% if status_filter == 'en_cours' %}btn-warning{% else %}btn-outline-warning{% endif %} mr-2">
+                    En cours
+                </a>
+                <a href="/client_home?status=termine" class="btn btn-sm {% if status_filter == 'termine' %}btn-success{% else %}btn-outline-success{% endif %}">
+                    Terminées
+                </a>
+            </div>
         </div>
     </div>
 
@@ -75,29 +138,12 @@
                                         'N/A' }}
                                     </td>
                                     <td>
-                                        {% if conversation.status == 'nouveau'
-                                        %}
-                                        <span class="badge bg-info text-white"
-                                            >Nouveau</span
-                                        >
-                                        {% elif conversation.status ==
-                                        'en_cours' %}
-                                        <span
-                                            class="badge bg-warning text-white"
-                                            >En cours</span
-                                        >
-                                        {% elif conversation.status == 'termine'
-                                        %}
-                                        <span
-                                            class="badge bg-success text-white"
-                                            >Terminé</span
-                                        >
-                                        {% else %}
-                                        <span
-                                            class="badge bg-secondary text-white"
-                                            >{{ conversation.status }}</span
-                                        >
-                                        {% endif %}
+                                        <span class="status-badge status-{{ conversation.status }}">
+                                            {% if conversation.status == 'nouveau' %}Nouveau
+                                            {% elif conversation.status == 'en_cours' %}En cours
+                                            {% elif conversation.status == 'termine' %}Terminé
+                                            {% else %}{{ conversation.status }}{% endif %}
+                                        </span>
                                     </td>
                                     <td>
                                         <div class="btn-group" role="group">

@@ -63,6 +63,11 @@ def get_or_create_conversation(
         db.commit()
         db.refresh(conversation)
 
+        client_user = db.query(ClientUser).filter(ClientUser.user_id == user.id).first()
+        if client_user:
+            client_user.active_conversation_id = conversation.id
+            db.commit()
+
     return conversation
 
 # Route de connexion (GET)
@@ -93,9 +98,9 @@ async def login(
     # Vérifier si l'utilisateur est un client
     client_user = get_client_user(db, user)
     if client_user and client_user.is_client_only:
-        response = RedirectResponse(url="/client_home", status_code=status.HTTP_302_FOUND)
+        response = RedirectResponse(url="/client_home", status_code=302)
     else:
-        response = RedirectResponse(url="/conversations", status_code=status.HTTP_302_FOUND)
+        response = RedirectResponse(url="/dashboard", status_code=302)
     
     response.set_cookie(
         key="access_token",
@@ -109,7 +114,7 @@ async def login(
 # Route de déconnexion
 @router.get("/logout", response_model=None)
 async def logout():
-    response = RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie(key="access_token")
     return response
 
@@ -158,13 +163,13 @@ async def register(
     db.add(client_user)
     db.commit()
     
-    return RedirectResponse(url="/login?message=Compte créé avec succès", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(url="/login?message=Compte créé avec succès", status_code=302)
 
 # Route liste des conversations (pour les admins)
 @router.get("/conversations", response_class=HTMLResponse, response_model=None)
 async def conversations_list(
     request: Request,
-    status_filter: Optional[str] = None,
+    status: Optional[str] = None,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -172,14 +177,18 @@ async def conversations_list(
     if not is_staff_or_admin(current_user):
         client_user = get_client_user(db, current_user)
         if client_user and client_user.is_client_only:
-            return RedirectResponse(url="/client_home", status_code=status.HTTP_302_FOUND)
+            return RedirectResponse(url="/client_home", status_code=302)
     
     # Récupérer les conversations
     query = db.query(Conversation)
-    if status_filter:
-        query = query.filter(Conversation.status == status_filter)
+    if status:
+        logger.info(f"Filtrage par statut: {status}")
+        query = query.filter(Conversation.status == status)
+    else:
+        logger.info("Aucun filtre de statut appliqué")
     
     conversations = query.order_by(Conversation.updated_at.desc()).all()
+    logger.info(f"Nombre de conversations trouvées: {len(conversations)}")
     
     # Améliorer les informations client pour chaque conversation
     for conversation in conversations:
@@ -220,7 +229,7 @@ async def conversations_list(
         {
             "request": request,
             "conversations": conversations,
-            "status_filter": status_filter,
+            "status_filter": status,
             "count": len(conversations),
             "user": current_user
         }
@@ -237,9 +246,9 @@ async def conversation_detail(
     conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not conversation:
         if is_staff_or_admin(current_user):
-            return RedirectResponse(url="/conversations", status_code=status.HTTP_302_FOUND)
+            return RedirectResponse(url="/conversations", status_code=302)
         else:
-            return RedirectResponse(url="/client_home", status_code=status.HTTP_302_FOUND)
+            return RedirectResponse(url="/client_home", status_code=302)
     
     # Vérifier les permissions
     if not is_staff_or_admin(current_user):
@@ -268,24 +277,34 @@ async def conversation_detail(
 @router.get("/client_home", response_class=HTMLResponse, response_model=None)
 async def client_home(
     request: Request,
+    status: Optional[str] = None,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     client_user = get_client_user(db, current_user)
     if not client_user:
-        return RedirectResponse(url="/conversations", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url="/conversations", status_code=302)
     
     # Récupérer les conversations du client
-    conversations = db.query(Conversation).filter(
-        Conversation.user_id == current_user.id
-    ).order_by(Conversation.updated_at.desc()).limit(10).all()
+    query = db.query(Conversation).filter(Conversation.user_id == current_user.id)
+    
+    # Appliquer le filtre de statut si spécifié
+    if status:
+        logger.info(f"Filtrage client par statut: {status}")
+        query = query.filter(Conversation.status == status)
+    else:
+        logger.info("Aucun filtre de statut appliqué pour le client")
+    
+    conversations = query.order_by(Conversation.updated_at.desc()).all()
+    logger.info(f"Nombre de conversations client trouvées: {len(conversations)}")
     
     return templates.TemplateResponse(
         "client_home.html",
         {
             "request": request,
             "user": current_user,
-            "conversations": conversations
+            "conversations": conversations,
+            "status_filter": status
         }
     )
 
@@ -293,21 +312,34 @@ async def client_home(
 @router.get("/chat", response_class=HTMLResponse, response_model=None)
 async def chat_page(
     request: Request,
+    conversation_id: Optional[str] = None,  # Récupérer conversation_id depuis l'URL
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    # Récupérer la conversation active
-    conversation_id = "temp"
+    # Récupérer la conversation depuis l'URL ou la conversation active
     history = "[]"
     
-    client_user = get_client_user(db, current_user)
-    if client_user and client_user.active_conversation_id:
-        conversation = db.query(Conversation).filter(
-            Conversation.id == client_user.active_conversation_id
-        ).first()
-        if conversation:
-            conversation_id = conversation.id
-            history = json.dumps(conversation.history)
+    # Priorité 1: conversation_id depuis l'URL
+    if conversation_id and conversation_id != "temp":
+        try:
+            conv_id = int(conversation_id)
+            conversation = db.query(Conversation).filter(Conversation.id == conv_id).first()
+            if conversation:
+                history = json.dumps(conversation.history)
+        except (ValueError, TypeError):
+            conversation_id = "temp"
+    
+    # Priorité 2: conversation active du client si pas d'URL
+    if not conversation_id or conversation_id == "temp":
+        conversation_id = "temp"
+        client_user = get_client_user(db, current_user)
+        if client_user and client_user.active_conversation_id:
+            conversation = db.query(Conversation).filter(
+                Conversation.id == client_user.active_conversation_id
+            ).first()
+            if conversation:
+                conversation_id = conversation.id
+                history = json.dumps(conversation.history)
     
     # Récupérer les informations du client
     try:
@@ -391,18 +423,24 @@ async def send_message(
         llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.4)
         vectorstore = get_vectorstore(openai_api_key)
         
-        # Ajouter le message utilisateur
+        # Ajouter le message utilisateur (comme Django)
         conversation.add_message("user", user_input)
         
-        # Ajouter les prompts système si c'est le premier message
-        if len(conversation.history) <= 1:
+        # Récupérer l'historique complet
+        conversation_history = conversation.history
+        
+        # Ajouter les prompts système s'ils n'existent pas déjà (EXACTEMENT comme Django)
+        if len(conversation_history) <= 1:  # Seulement le message utilisateur qu'on vient d'ajouter
             system_prompts = [
                 {"role": "system", "content": preprompt.get("content", "Vous êtes un assistant virtuel serviable et professionnel.")},
                 {"role": "system", "content": json.dumps(client_json)},
                 {"role": "system", "content": json.dumps(retours)},
                 {"role": "system", "content": json.dumps(commandes)}
             ]
-            conversation.history = system_prompts + conversation.history
+            # Insérer au début de l'historique (comme Django)
+            conversation.history = system_prompts + conversation_history
+            db.commit()  # Sauvegarder
+            conversation_history = conversation.history
         
         # Recherche FAISS améliorée
         try:
@@ -413,18 +451,14 @@ async def send_message(
             logger.error("Erreur recherche FAISS: %s", e)
             faiss_context = "Informations g\xc3\xa9n\xc3\xa9rales PROFERM: sp\xc3\xa9cialiste des portes d'entr\xc3\xa9e, vitrages et stores."
         
-        # Préparer le contexte
-        history_text = get_conversation_history(conversation.history)
-        complete_context = (
-            f"{history_text}\n\n"
-            f"Informations des catalogues PROFERM:\n{faiss_context}\n\n"
-            f"Instructions: Utilisez les informations des catalogues PROFERM ci-dessus pour répondre aux questions sur nos produits. "
-            f"Si vous ne trouvez pas d'informations spécifiques, redirigez poliment vers notre service client.\n\n"
-            f"User: {user_input}"
-        )
+        # Convertir l'historique de conversation en texte (comme Django)
+        history_text = get_conversation_history(conversation_history)
         
-        # Obtenir la réponse
-        response = llm.invoke(complete_context)
+        # Préparer le contexte complet (EXACTEMENT comme Django)
+        complete_context = history_text + "\nContext from FAISS:\n" + faiss_context
+        
+        # Obtenir la réponse du modèle (EXACTEMENT comme Django)
+        response = llm.invoke(complete_context + "\nUser: " + user_input)
         assistant_response = response.content if hasattr(response, 'content') else "Aucune réponse trouvée."
         
         # Ajouter la réponse
@@ -638,10 +672,48 @@ async def update_client_name(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
+# API endpoint pour mettre à jour le statut d'une conversation
+@router.put("/api/conversation/{conversation_id}/status", response_model=None)
+async def update_conversation_status(
+    conversation_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Vérifier les permissions (seuls les admins peuvent modifier le statut)
+        if not is_staff_or_admin(current_user):
+            raise HTTPException(status_code=403, detail="Accès non autorisé")
+        
+        # Récupérer les données JSON
+        data = await request.json()
+        new_status = data.get("status")
+        
+        # Valider le statut
+        valid_statuses = ["nouveau", "en_cours", "termine"]
+        if new_status not in valid_statuses:
+            raise HTTPException(status_code=400, detail="Statut invalide")
+        
+        # Récupérer la conversation
+        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation non trouvée")
+        
+        # Mettre à jour le statut
+        conversation.set_status(new_status)
+        db.commit()
+        
+        return {"status": "success", "message": "Statut mis à jour avec succès"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
 # Route racine - redirection vers login
 @router.get("/", response_model=None)
 async def root():
-    return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(url="/login", status_code=302)
 
 # Route de test pour diagnostiquer les problèmes de DB
 @router.get("/test-db", response_model=None)
@@ -670,3 +742,122 @@ async def test_database():
             "message": f"Erreur de connexion: {str(e)}",
             "type": type(e).__name__
         } 
+
+# Route dashboard admin
+@router.get("/dashboard", response_class=HTMLResponse, response_model=None)
+async def admin_dashboard(
+    request: Request,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    # Vérifier les permissions (seuls les admins peuvent accéder au dashboard)
+    if not is_staff_or_admin(current_user):
+        return RedirectResponse(url="/client_home", status_code=302)
+    
+    # Statistiques générales
+    total_conversations = db.query(Conversation).count()
+    
+    # Conversations par statut
+    nouveau_count = db.query(Conversation).filter(Conversation.status == "nouveau").count()
+    en_cours_count = db.query(Conversation).filter(Conversation.status == "en_cours").count()
+    termine_count = db.query(Conversation).filter(Conversation.status == "termine").count()
+    
+    # Conversations aujourd'hui
+    from datetime import datetime, timedelta
+    today = datetime.now().date()
+    today_conversations = db.query(Conversation).filter(
+        Conversation.created_at >= today
+    ).count()
+    
+    # Conversations des 30 derniers jours
+    thirty_days_ago = datetime.now() - timedelta(days=30)
+    recent_conversations = db.query(Conversation).filter(
+        Conversation.created_at >= thirty_days_ago
+    ).count()
+    
+    # Données pour le graphique des 30 derniers jours
+    daily_stats = []
+    for i in range(30):
+        date = datetime.now() - timedelta(days=i)
+        start_date = date.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = date.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        count = db.query(Conversation).filter(
+            Conversation.created_at >= start_date,
+            Conversation.created_at <= end_date
+        ).count()
+        
+        daily_stats.append({
+            "date": date.strftime("%d/%m"),
+            "count": count
+        })
+    
+    # Inverser pour avoir les dates dans l'ordre chronologique
+    daily_stats.reverse()
+    
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "user": current_user,
+            "total_conversations": total_conversations,
+            "nouveau_count": nouveau_count,
+            "en_cours_count": en_cours_count,
+            "termine_count": termine_count,
+            "today_conversations": today_conversations,
+            "recent_conversations": recent_conversations,
+            "daily_stats": daily_stats
+        }
+    ) 
+
+# API endpoint pour les statistiques du dashboard
+@router.get("/api/dashboard/stats")
+async def get_dashboard_stats(
+    period: str = "month",
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    # Vérifier les permissions
+    if not is_staff_or_admin(current_user):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    from datetime import datetime, timedelta
+    
+    # Définir la période selon le paramètre
+    if period == "week":
+        days = 7
+        date_format = "%d/%m"
+    elif period == "month":
+        days = 30
+        date_format = "%d/%m"
+    elif period == "quarter":
+        days = 90
+        date_format = "%d/%m"
+    elif period == "year":
+        days = 365
+        date_format = "%d/%m"
+    else:
+        days = 30
+        date_format = "%d/%m"
+    
+    # Générer les statistiques pour la période
+    stats = []
+    for i in range(days):
+        date = datetime.now() - timedelta(days=i)
+        start_date = date.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = date.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        count = db.query(Conversation).filter(
+            Conversation.created_at >= start_date,
+            Conversation.created_at <= end_date
+        ).count()
+        
+        stats.append({
+            "date": date.strftime(date_format),
+            "count": count
+        })
+    
+    # Inverser pour avoir les dates dans l'ordre chronologique
+    stats.reverse()
+    
+    return {"stats": stats}

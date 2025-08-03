@@ -1,4 +1,6 @@
 {% extends "base.html" %} {% block extra_css %}
+<!-- Ajout de la bibliothèque Marked pour le rendu markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
     .chat-layout {
         height: calc(100vh - 120px);
@@ -99,6 +101,68 @@
         margin-left: 1rem;
         margin-bottom: 0;
     }
+
+    /* Styles pour le rendu markdown */
+    .message.assistant {
+        line-height: 1.6;
+    }
+
+    .message.assistant p {
+        margin-bottom: 0.5rem;
+    }
+
+    .message.assistant p:last-child {
+        margin-bottom: 0;
+    }
+
+    .message.assistant strong {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .message.assistant em {
+        font-style: italic;
+        color: #7f8c8d;
+    }
+
+    .message.assistant ul,
+    .message.assistant ol {
+        margin: 0.5rem 0;
+        padding-left: 1.5rem;
+    }
+
+    .message.assistant li {
+        margin-bottom: 0.25rem;
+    }
+
+    .message.assistant code {
+        background-color: #f8f9fa;
+        padding: 0.2rem 0.4rem;
+        border-radius: 3px;
+        font-family: "Courier New", monospace;
+        font-size: 0.9em;
+    }
+
+    .message.assistant pre {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 5px;
+        overflow-x: auto;
+        margin: 0.5rem 0;
+    }
+
+    .message.assistant pre code {
+        background-color: transparent;
+        padding: 0;
+    }
+
+    .message.assistant blockquote {
+        border-left: 4px solid #007bff;
+        padding-left: 1rem;
+        margin: 0.5rem 0;
+        color: #6c757d;
+        font-style: italic;
+    }
 </style>
 {% endblock %} {% block content %}
 <div
@@ -140,6 +204,8 @@
             'system' %}
             <div
                 class="message {% if message.role == 'user' %}user{% else %}assistant{% endif %}"
+                data-content="{{ message.content|escape }}"
+                data-role="{{ message.role }}"
             >
                 {% if message.image_path %}
                 <img
@@ -151,7 +217,8 @@
                     "
                 />
                 <br />
-                {% endif %} {{ message.content }}
+                {% endif %}
+                <span class="message-text">{{ message.content }}</span>
             </div>
             {% endif %} {% endfor %} {% endif %}
         </div>
@@ -198,6 +265,24 @@
     const chatForm = document.getElementById("chat-form");
     const chatInput = document.getElementById("user-input");
     const chatMessages = document.getElementById("chat-messages");
+
+    // Traiter les messages existants au chargement de la page
+    document.addEventListener("DOMContentLoaded", function () {
+        // Configurer marked
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+        });
+
+        // Traiter tous les messages existants
+        const existingMessages = document.querySelectorAll(
+            ".message.assistant .message-text"
+        );
+        existingMessages.forEach(function (messageSpan) {
+            const content = messageSpan.textContent;
+            messageSpan.innerHTML = marked.parse(content);
+        });
+    });
     const sendButton = chatForm.querySelector(".send-button");
     const typingIndicator = chatMessages.querySelector(".typing-indicator");
     const fileUploadBtn = document.getElementById("file-upload-btn");
@@ -224,7 +309,7 @@
     chatInput.addEventListener("keydown", async function (e) {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault(); // Empêcher le retour à la ligne
-            
+
             const message = chatInput.value.trim();
             if (!message) return;
 
@@ -242,7 +327,10 @@
             try {
                 const formData = new FormData();
                 formData.append("message", message);
-                formData.append("conversation_id", currentConversationId || "temp");
+                formData.append(
+                    "conversation_id",
+                    currentConversationId || "temp"
+                );
 
                 // Ajouter les images si présentes
                 const imageFiles = imageUpload.files;
@@ -259,7 +347,16 @@
 
                 if (data.success) {
                     addMessage(data.response, "assistant");
-                    currentConversationId = data.conversation_id;
+                    
+                    // Mettre à jour l'ID de conversation si nécessaire (comme Django)
+                    if (data.conversation_id && (!currentConversationId || currentConversationId !== data.conversation_id)) {
+                        currentConversationId = data.conversation_id;
+                        
+                        // Mettre à jour l'URL sans recharger la page (comme Django)
+                        const newUrl = new URL(window.location);
+                        newUrl.searchParams.set("conversation_id", currentConversationId);
+                        window.history.pushState({}, "", newUrl);
+                    }
                 } else {
                     addMessage(
                         "Désolé, une erreur s'est produite. Veuillez réessayer.",
@@ -283,10 +380,13 @@
     });
 
     // Gérer l'upload d'images
-    imageUpload.addEventListener("change", function (e) {
+    imageUpload.addEventListener("change", async function (e) {
+        if (!e.target.files.length) return;
+
         const files = Array.from(e.target.files);
         chatImagePreview.innerHTML = "";
 
+        // Afficher la prévisualisation
         files.forEach((file, index) => {
             const reader = new FileReader();
             reader.onload = function (e) {
@@ -297,9 +397,66 @@
                 img.style.objectFit = "cover";
                 img.style.borderRadius = "5px";
                 chatImagePreview.appendChild(img);
+
+                // Ajouter un message dans le chat
+                addMessage(`📤 Image envoyée: ${file.name}`, "user");
             };
             reader.readAsDataURL(file);
         });
+
+        // Envoyer automatiquement les images au serveur
+        try {
+            typingIndicator.style.display = "flex";
+
+            const formData = new FormData();
+            files.forEach((file) => {
+                formData.append("images", file);
+            });
+            formData.append("conversation_id", currentConversationId || "temp");
+
+            const response = await fetch("/api/upload_images", {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.response) {
+                addMessage(data.response, "assistant");
+
+                // Mettre à jour l'ID de conversation si nécessaire
+                if (
+                    data.conversation_id &&
+                    (!currentConversationId ||
+                        currentConversationId !== data.conversation_id)
+                ) {
+                    currentConversationId = data.conversation_id;
+
+                    // Mettre à jour l'URL sans recharger la page
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.set(
+                        "conversation_id",
+                        currentConversationId
+                    );
+                    window.history.pushState({}, "", newUrl);
+                }
+            } else {
+                addMessage(
+                    "Erreur lors du téléchargement des images.",
+                    "assistant"
+                );
+            }
+        } catch (error) {
+            console.error("Erreur upload images:", error);
+            addMessage(
+                "Erreur lors du téléchargement des images.",
+                "assistant"
+            );
+        } finally {
+            typingIndicator.style.display = "none";
+            // Vider la sélection de fichiers
+            imageUpload.value = "";
+        }
     });
 
     // Envoyer le message
@@ -324,12 +481,6 @@
             const formData = new FormData();
             formData.append("message", message);
             formData.append("conversation_id", currentConversationId || "temp");
-
-            // Ajouter les images si présentes
-            const imageFiles = imageUpload.files;
-            for (let i = 0; i < imageFiles.length; i++) {
-                formData.append("images", imageFiles[i]);
-            }
 
             const response = await fetch("/api/chat", {
                 method: "POST",
@@ -429,7 +580,19 @@
     function addMessage(content, role) {
         const messageDiv = document.createElement("div");
         messageDiv.className = `message ${role}`;
-        messageDiv.textContent = content;
+
+        // Traiter le markdown si c'est un message de l'assistant
+        if (role === "assistant") {
+            // Configurer marked pour la sécurité
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+            });
+            messageDiv.innerHTML = marked.parse(content);
+        } else {
+            // Pour les messages utilisateur, afficher en texte simple
+            messageDiv.textContent = content;
+        }
 
         // Insérer avant l'indicateur de frappe
         chatMessages.insertBefore(messageDiv, typingIndicator);
