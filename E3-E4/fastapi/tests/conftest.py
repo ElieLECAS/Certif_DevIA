@@ -1,8 +1,9 @@
 import os
 from pathlib import Path
 import sys
+import asyncio
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -67,7 +68,28 @@ def client(db, test_user):
     def override_current_active_user():
         return test_user
     app.dependency_overrides[get_current_active_user] = override_current_active_user
-    with TestClient(app) as c:
+    transport = ASGITransport(app=app)
+    client = AsyncClient(transport=transport, base_url="http://testserver")
+
+    class _SyncClient:
+        def __enter__(self_inner):
+            return self_inner
+
+        def __exit__(self_inner, exc_type, exc, tb):
+            asyncio.run(client.aclose())
+
+        def request(self_inner, method, url, **kwargs):
+            if "allow_redirects" in kwargs:
+                kwargs["follow_redirects"] = kwargs.pop("allow_redirects")
+            return asyncio.run(client.request(method, url, **kwargs))
+
+        def get(self_inner, url, **kwargs):
+            return self_inner.request("GET", url, **kwargs)
+
+        def post(self_inner, url, **kwargs):
+            return self_inner.request("POST", url, **kwargs)
+
+    with _SyncClient() as c:
         yield c
     app.dependency_overrides.pop(get_current_active_user, None)
 

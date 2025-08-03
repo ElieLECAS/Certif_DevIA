@@ -14,7 +14,7 @@ def test_post_login(client):
     response = client.post(
         "/login",
         data={"username": "tester", "password": "password"},
-        allow_redirects=False,
+        follow_redirects=False,
     )
     assert response.status_code == 302
     assert response.headers["location"] == "/conversations"
@@ -24,7 +24,7 @@ def test_post_register(client):
     response = client.post(
         "/register",
         data={"username": "newuser", "email": "new@ex.com", "password": "pass"},
-        allow_redirects=False,
+        follow_redirects=False,
     )
     assert response.status_code == 302
     assert response.headers["location"].startswith("/login")
@@ -32,7 +32,7 @@ def test_post_register(client):
 
 
 def test_logout(client):
-    response = client.get("/logout", allow_redirects=False)
+    response = client.get("/logout", follow_redirects=False)
     assert response.status_code == 302
     assert response.headers["location"] == "/login"
 
@@ -50,7 +50,7 @@ def test_conversation_detail(client, conversation):
 
 
 def test_client_home_page(client):
-    response = client.get("/client_home", allow_redirects=False)
+    response = client.get("/client_home", follow_redirects=False)
     assert response.status_code == 302
     assert response.headers["location"] == "/conversations"
 
@@ -92,7 +92,7 @@ def test_update_client_name(client, conversation):
 
 
 def test_root_redirect(client):
-    response = client.get("/", allow_redirects=False)
+    response = client.get("/", follow_redirects=False)
     assert response.status_code == 302
     assert response.headers["location"] == "/login"
 
