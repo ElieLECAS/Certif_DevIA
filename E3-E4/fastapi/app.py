@@ -82,8 +82,13 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # Importer et inclure les routes
-from routes import router
-app.include_router(router)
+from routes.auth import router as auth_router
+from routes.conversation import router as conversation_router
+from routes.admin import router as admin_router
+app.include_router(auth_router)
+app.include_router(conversation_router)
+app.include_router(admin_router)
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True) 
+

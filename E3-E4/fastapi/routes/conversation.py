@@ -1,27 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, File, UploadFile, status
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
 from typing import Optional, List
 import json
 import os
-from pathlib import Path
 import logging
-from models import User, ClientUser, Conversation
-from auth import authenticate_user, create_access_token, get_current_active_user, get_client_user, is_client_only, is_staff_or_admin, get_password_hash
+
+from models import User, Conversation
+from auth import get_current_active_user, get_client_user, is_staff_or_admin
 from langchain_utils import initialize_faiss, load_all_jsons, get_conversation_history, save_uploaded_file
 from utils import get_openai_api_key, MISSING_OPENAI_KEY_MSG
 from schemas import ChatMessage, ChatResponse, ConversationClose, ClientNameUpdate
-
-# Import de la fonction get_db depuis database
 from database import get_db
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 logger = logging.getLogger(__name__)
 
-# Variable globale pour stocker l'index FAISS
 _vectorstore = None
 
 def get_vectorstore(openai_api_key: str):
@@ -34,7 +30,6 @@ def get_vectorstore(openai_api_key: str):
     else:
         logger.info("\ud83d\udcda Utilisation de l'index FAISS existant")
     return _vectorstore
-
 
 def get_or_create_conversation(
     db: Session,
@@ -64,173 +59,6 @@ def get_or_create_conversation(
         db.refresh(conversation)
 
     return conversation
-
-# Route de connexion (GET)
-@router.get("/login", response_class=HTMLResponse, response_model=None)
-async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
-
-# Route de connexion (POST)
-@router.post("/login", response_model=None)
-async def login(
-    request: Request,
-    username: str = Form(...),
-    password: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    user = authenticate_user(db, username, password)
-    if not user:
-        return templates.TemplateResponse(
-            "login.html", 
-            {"request": request, "error": "Identifiants invalides."}
-        )
-    
-    access_token_expires = timedelta(minutes=30)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    
-    # Vérifier si l'utilisateur est un client
-    client_user = get_client_user(db, user)
-    if client_user and client_user.is_client_only:
-        response = RedirectResponse(url="/client_home", status_code=status.HTTP_302_FOUND)
-    else:
-        response = RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
-    
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        max_age=1800,  # 30 minutes
-        expires=1800
-    )
-    return response
-
-# Route de déconnexion
-@router.get("/logout", response_model=None)
-async def logout():
-    response = RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    response.delete_cookie(key="access_token")
-    return response
-
-# Route d'inscription client (GET)
-@router.get("/register", response_class=HTMLResponse, response_model=None)
-async def register_page(request: Request):
-    return templates.TemplateResponse("client_register.html", {"request": request})
-
-# Route d'inscription client (POST)
-@router.post("/register", response_model=None)
-async def register(
-    request: Request,
-    username: str = Form(...),
-    email: str = Form(...),
-    password: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    # Vérifier si l'utilisateur existe déjà
-    existing_user = db.query(User).filter(
-        (User.username == username) | (User.email == email)
-    ).first()
-    
-    if existing_user:
-        return templates.TemplateResponse(
-            "client_register.html",
-            {"request": request, "error": "Nom d'utilisateur ou email déjà utilisé."}
-        )
-    
-    # Créer l'utilisateur
-    hashed_password = get_password_hash(password)
-    user = User(
-        username=username,
-        email=email,
-        hashed_password=hashed_password,
-        is_active=True
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    
-    # Créer le profil client
-    client_user = ClientUser(
-        user_id=user.id,
-        is_client_only=True
-    )
-    db.add(client_user)
-    db.commit()
-    
-    return RedirectResponse(url="/login?message=Compte créé avec succès", status_code=status.HTTP_302_FOUND)
-
-# Route liste des conversations (pour les admins)
-@router.get("/conversations", response_class=HTMLResponse, response_model=None)
-async def conversations_list(
-    request: Request,
-    status: Optional[str] = None,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    # Vérifier les permissions
-    if not is_staff_or_admin(current_user):
-        client_user = get_client_user(db, current_user)
-        if client_user and client_user.is_client_only:
-            return RedirectResponse(url="/client_home", status_code=status.HTTP_302_FOUND)
-    
-    # Récupérer les conversations
-    query = db.query(Conversation)
-    if status:
-        logger.info(f"Filtrage par statut: {status}")
-        query = query.filter(Conversation.status == status)
-    else:
-        logger.info("Aucun filtre de statut appliqué")
-    
-    conversations = query.order_by(Conversation.updated_at.desc()).all()
-    logger.info(f"Nombre de conversations trouvées: {len(conversations)}")
-    
-    # Améliorer les informations client pour chaque conversation
-    for conversation in conversations:
-        if conversation.user_id:
-            # Récupérer les informations de l'utilisateur
-            user = db.query(User).filter(User.id == conversation.user_id).first()
-            if user:
-                # Récupérer les informations client depuis la BDD
-                try:
-                    preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=user, db=db)
-                    if client_json and isinstance(client_json, dict) and 'client_informations' in client_json:
-                        client_info = client_json['client_informations']
-                        nom = client_info.get('nom', '')
-                        prenom = client_info.get('prenom', '')
-                        if nom and prenom:
-                            conversation.client_name = f"{prenom} {nom}"
-                        elif nom:
-                            conversation.client_name = nom
-                        elif prenom:
-                            conversation.client_name = prenom
-                        else:
-                            conversation.client_name = user.username
-                    else:
-                        conversation.client_name = user.username
-                except Exception as e:
-                    logger.error(
-                        "Erreur lors du chargement des informations client : %s",
-                        e,
-                    )
-                    conversation.client_name = user.username
-            else:
-                conversation.client_name = "Utilisateur inconnu"
-        else:
-            conversation.client_name = conversation.client_name or "Anonyme"
-    
-    return templates.TemplateResponse(
-        "conversations_list.html",
-        {
-            "request": request,
-            "conversations": conversations,
-            "status_filter": status,
-            "count": len(conversations),
-            "user": current_user
-        }
-    )
-
-# Route détail d'une conversation
 @router.get("/conversation/{conversation_id}", response_class=HTMLResponse, response_model=None)
 async def conversation_detail(
     request: Request,
@@ -272,7 +100,7 @@ async def conversation_detail(
 @router.get("/client_home", response_class=HTMLResponse, response_model=None)
 async def client_home(
     request: Request,
-    status: Optional[str] = None,
+    status_filter: Optional[str] = None,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -284,9 +112,9 @@ async def client_home(
     query = db.query(Conversation).filter(Conversation.user_id == current_user.id)
     
     # Appliquer le filtre de statut si spécifié
-    if status:
-        logger.info(f"Filtrage client par statut: {status}")
-        query = query.filter(Conversation.status == status)
+    if status_filter:
+        logger.info(f"Filtrage client par statut: {status_filter}")
+        query = query.filter(Conversation.status == status_filter)
     else:
         logger.info("Aucun filtre de statut appliqué pour le client")
     
@@ -299,11 +127,10 @@ async def client_home(
             "request": request,
             "user": current_user,
             "conversations": conversations,
-            "status_filter": status
+            "status_filter": status_filter
         }
     )
 
-# Route chat OpenAI (GET)
 @router.get("/chat", response_class=HTMLResponse, response_model=None)
 async def chat_page(
     request: Request,
@@ -474,7 +301,6 @@ async def send_message(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
-# API endpoint pour fermer une conversation
 @router.post("/api/close_conversation", response_model=None)
 async def close_conversation(
     request: Request,
@@ -540,7 +366,6 @@ async def close_conversation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
-# API endpoint pour upload d'images
 @router.post("/api/upload_images", response_model=None)
 async def upload_images(
     images: List[UploadFile] = File(...),
@@ -633,7 +458,6 @@ async def upload_images(
 @router.post("/api/reset_chat", response_model=None)
 async def reset_chat():
     return {"status": "success", "conversation_id": "temp"}
-
 # API endpoint pour mettre à jour le nom du client
 @router.post("/api/update_client_name", response_model=None)
 async def update_client_name(
@@ -667,192 +491,3 @@ async def update_client_name(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
-# API endpoint pour mettre à jour le statut d'une conversation
-@router.put("/api/conversation/{conversation_id}/status", response_model=None)
-async def update_conversation_status(
-    conversation_id: int,
-    request: Request,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    try:
-        # Vérifier les permissions (seuls les admins peuvent modifier le statut)
-        if not is_staff_or_admin(current_user):
-            raise HTTPException(status_code=403, detail="Accès non autorisé")
-        
-        # Récupérer les données JSON
-        data = await request.json()
-        new_status = data.get("status")
-        
-        # Valider le statut
-        valid_statuses = ["nouveau", "en_cours", "termine"]
-        if new_status not in valid_statuses:
-            raise HTTPException(status_code=400, detail="Statut invalide")
-        
-        # Récupérer la conversation
-        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-        if not conversation:
-            raise HTTPException(status_code=404, detail="Conversation non trouvée")
-        
-        # Mettre à jour le statut
-        conversation.set_status(new_status)
-        db.commit()
-        
-        return {"status": "success", "message": "Statut mis à jour avec succès"}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
-
-# Route racine - redirection vers login
-@router.get("/", response_model=None)
-async def root():
-    return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-
-# Route de test pour diagnostiquer les problèmes de DB
-@router.get("/test-db", response_model=None)
-async def test_database():
-    try:
-        from database import engine
-        from models import Base
-        
-        # Tester la connexion
-        with engine.connect() as conn:
-            result = conn.execute("SELECT version()")
-            version = result.fetchone()
-            
-        # Tester la création des tables
-        Base.metadata.create_all(bind=engine)
-        
-        return {
-            "status": "success",
-            "message": "Connexion PostgreSQL réussie",
-            "version": version[0] if version else "Unknown"
-        }
-        
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Erreur de connexion: {str(e)}",
-            "type": type(e).__name__
-        } 
-
-# Route dashboard admin
-@router.get("/dashboard", response_class=HTMLResponse, response_model=None)
-async def admin_dashboard(
-    request: Request,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    # Vérifier les permissions (seuls les admins peuvent accéder au dashboard)
-    if not is_staff_or_admin(current_user):
-        return RedirectResponse(url="/client_home", status_code=status.HTTP_302_FOUND)
-    
-    # Statistiques générales
-    total_conversations = db.query(Conversation).count()
-    
-    # Conversations par statut
-    nouveau_count = db.query(Conversation).filter(Conversation.status == "nouveau").count()
-    en_cours_count = db.query(Conversation).filter(Conversation.status == "en_cours").count()
-    termine_count = db.query(Conversation).filter(Conversation.status == "termine").count()
-    
-    # Conversations aujourd'hui
-    from datetime import datetime, timedelta
-    today = datetime.now().date()
-    today_conversations = db.query(Conversation).filter(
-        Conversation.created_at >= today
-    ).count()
-    
-    # Conversations des 30 derniers jours
-    thirty_days_ago = datetime.now() - timedelta(days=30)
-    recent_conversations = db.query(Conversation).filter(
-        Conversation.created_at >= thirty_days_ago
-    ).count()
-    
-    # Données pour le graphique des 30 derniers jours
-    daily_stats = []
-    for i in range(30):
-        date = datetime.now() - timedelta(days=i)
-        start_date = date.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = date.replace(hour=23, minute=59, second=59, microsecond=999999)
-        
-        count = db.query(Conversation).filter(
-            Conversation.created_at >= start_date,
-            Conversation.created_at <= end_date
-        ).count()
-        
-        daily_stats.append({
-            "date": date.strftime("%d/%m"),
-            "count": count
-        })
-    
-    # Inverser pour avoir les dates dans l'ordre chronologique
-    daily_stats.reverse()
-    
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {
-            "request": request,
-            "user": current_user,
-            "total_conversations": total_conversations,
-            "nouveau_count": nouveau_count,
-            "en_cours_count": en_cours_count,
-            "termine_count": termine_count,
-            "today_conversations": today_conversations,
-            "recent_conversations": recent_conversations,
-            "daily_stats": daily_stats
-        }
-    ) 
-
-# API endpoint pour les statistiques du dashboard
-@router.get("/api/dashboard/stats")
-async def get_dashboard_stats(
-    period: str = "month",
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    # Vérifier les permissions
-    if not is_staff_or_admin(current_user):
-        raise HTTPException(status_code=403, detail="Accès non autorisé")
-    
-    from datetime import datetime, timedelta
-    
-    # Définir la période selon le paramètre
-    if period == "week":
-        days = 7
-        date_format = "%d/%m"
-    elif period == "month":
-        days = 30
-        date_format = "%d/%m"
-    elif period == "quarter":
-        days = 90
-        date_format = "%d/%m"
-    elif period == "year":
-        days = 365
-        date_format = "%d/%m"
-    else:
-        days = 30
-        date_format = "%d/%m"
-    
-    # Générer les statistiques pour la période
-    stats = []
-    for i in range(days):
-        date = datetime.now() - timedelta(days=i)
-        start_date = date.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = date.replace(hour=23, minute=59, second=59, microsecond=999999)
-        
-        count = db.query(Conversation).filter(
-            Conversation.created_at >= start_date,
-            Conversation.created_at <= end_date
-        ).count()
-        
-        stats.append({
-            "date": date.strftime(date_format),
-            "count": count
-        })
-    
-    # Inverser pour avoir les dates dans l'ordre chronologique
-    stats.reverse()
-    
-    return {"stats": stats}
