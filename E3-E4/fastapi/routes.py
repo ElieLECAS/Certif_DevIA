@@ -63,6 +63,11 @@ def get_or_create_conversation(
         db.commit()
         db.refresh(conversation)
 
+        client_user = db.query(ClientUser).filter(ClientUser.user_id == user.id).first()
+        if client_user:
+            client_user.active_conversation_id = conversation.id
+            db.commit()
+
     return conversation
 
 # Route de connexion (GET)
