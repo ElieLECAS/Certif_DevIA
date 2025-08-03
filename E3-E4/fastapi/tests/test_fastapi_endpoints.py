@@ -1,13 +1,17 @@
-def test_login_page(client):
-    response = client.get("/login")
-    assert response.status_code == 200
-    assert "Connexion" in response.text
+import pytest
 
 
-def test_register_page(client):
-    response = client.get("/register")
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        ("/login", "Connexion"),
+        ("/register", "Inscription Client"),
+    ],
+)
+def test_page_routes(client, path, expected):
+    response = client.get(path)
     assert response.status_code == 200
-    assert "Inscription Client" in response.text
+    assert expected in response.text
 
 
 def test_post_login(client):
