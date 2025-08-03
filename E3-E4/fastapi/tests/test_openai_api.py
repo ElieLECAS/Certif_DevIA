@@ -20,13 +20,13 @@ def test_get_openai_api_key_missing(monkeypatch):
 def test_chat_endpoint_requires_key(client, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     response = client.post("/api/chat", data={"message": "hello", "conversation_id": "temp"})
-    assert response.status_code == 500
-    assert "Erreur" in response.json()["detail"]
+    assert response.status_code == 401
+    assert response.json()["detail"] == MISSING_OPENAI_KEY_MSG
 
 
 def test_upload_images_requires_key(client, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     files = {"images": ("test.jpg", io.BytesIO(b"data"), "image/jpeg")}
     response = client.post("/api/upload_images", files=files, data={"conversation_id": "temp"})
-    assert response.status_code == 500
-    assert "Erreur" in response.json()["detail"]
+    assert response.status_code == 401
+    assert response.json()["detail"] == MISSING_OPENAI_KEY_MSG

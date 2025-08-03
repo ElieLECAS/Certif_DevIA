@@ -361,7 +361,7 @@ async def send_message(
         try:
             openai_api_key = get_openai_api_key()
         except EnvironmentError:
-            raise HTTPException(status_code=500, detail=MISSING_OPENAI_KEY_MSG)
+            raise HTTPException(status_code=401, detail=MISSING_OPENAI_KEY_MSG)
         
         # Récupérer les données contextuelles
         preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user, db=db)
@@ -440,6 +440,8 @@ async def send_message(
             "history": conversation.history
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
@@ -531,7 +533,7 @@ async def upload_images(
         try:
             openai_api_key = get_openai_api_key()
         except EnvironmentError:
-            raise HTTPException(status_code=500, detail=MISSING_OPENAI_KEY_MSG)
+            raise HTTPException(status_code=401, detail=MISSING_OPENAI_KEY_MSG)
         
         # Charger les informations client et récupérer ou créer la conversation
         preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user)
@@ -593,6 +595,8 @@ async def upload_images(
             "history": conversation.history
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
