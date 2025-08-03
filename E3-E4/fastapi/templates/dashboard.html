@@ -14,34 +14,38 @@
         --card-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
         --card-shadow-hover: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.25);
     }
-    
+
     /* Amélioration générale du dashboard */
     .container-fluid {
         background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
         min-height: 100vh;
         padding: 2rem 0;
     }
-    
+
     /* En-tête amélioré */
     .dashboard-header {
-        background: linear-gradient(135deg, var(--primary-color) 0%, #224abe 100%);
+        background: linear-gradient(
+            135deg,
+            var(--primary-color) 0%,
+            #224abe 100%
+        );
         color: white;
         padding: 2rem;
         border-radius: 15px;
         margin-bottom: 2rem;
         box-shadow: var(--card-shadow);
     }
-    
+
     .dashboard-header h1 {
         font-weight: 700;
         margin-bottom: 0.5rem;
     }
-    
+
     .dashboard-header p {
         opacity: 0.9;
         margin-bottom: 0;
     }
-    
+
     /* Cartes de statistiques améliorées */
     .stats-card {
         transition: all 0.3s ease;
@@ -51,60 +55,68 @@
         overflow: hidden;
         position: relative;
     }
-    
+
     .stats-card:hover {
         transform: translateY(-5px);
         box-shadow: var(--card-shadow-hover);
     }
-    
+
     .stats-card::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
         height: 4px;
-        background: linear-gradient(90deg, var(--primary-color), var(--info-color));
+        background: linear-gradient(
+            90deg,
+            var(--primary-color),
+            var(--info-color)
+        );
     }
-    
+
     .stats-card.border-left-primary::before {
         background: linear-gradient(90deg, var(--primary-color), #224abe);
     }
-    
+
     .stats-card.border-left-info::before {
         background: linear-gradient(90deg, var(--info-color), #2a96a4);
     }
-    
+
     .stats-card.border-left-warning::before {
         background: linear-gradient(90deg, var(--warning-color), #dda20a);
     }
-    
+
     .stats-card.border-left-success::before {
         background: linear-gradient(90deg, var(--success-color), #17a673);
     }
-    
+
     .stats-card.border-left-danger::before {
         background: linear-gradient(90deg, var(--danger-color), #be2617);
     }
-    
+
     .stats-card.border-left-secondary::before {
         background: linear-gradient(90deg, var(--secondary-color), #6c757d);
     }
-    
+
     .stats-card .card-body {
         padding: 1.5rem;
     }
-    
+
     .stats-number {
         font-size: 2.8rem;
         font-weight: 800;
-        background: linear-gradient(135deg, var(--primary-color), var(--info-color));
+        background: linear-gradient(
+            135deg,
+            var(--primary-color),
+            var(--info-color)
+        );
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
         margin-bottom: 0.5rem;
     }
-    
+
     .stats-label {
         font-size: 0.85rem;
         font-weight: 600;
@@ -113,7 +125,7 @@
         color: var(--secondary-color);
         margin-bottom: 1rem;
     }
-    
+
     .stats-icon {
         font-size: 2.5rem;
         opacity: 0.1;
@@ -122,7 +134,7 @@
         top: 50%;
         transform: translateY(-50%);
     }
-    
+
     /* Graphiques améliorés */
     .chart-card {
         border: none;
@@ -130,31 +142,31 @@
         box-shadow: var(--card-shadow);
         transition: all 0.3s ease;
     }
-    
+
     .chart-card:hover {
         box-shadow: var(--card-shadow-hover);
     }
-    
+
     .chart-card .card-header {
         background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
         border-bottom: 1px solid #e3e6f0;
         border-radius: 15px 15px 0 0;
         padding: 1.5rem;
     }
-    
+
     .chart-card .card-header h6 {
         font-weight: 700;
         color: var(--primary-color);
         margin: 0;
     }
-    
+
     .chart-container {
         position: relative;
         height: 400px;
         margin: 1.5rem 0;
         padding: 0 1rem;
     }
-    
+
     /* Boutons de période améliorés */
     .btn-group .btn {
         border-radius: 0;
@@ -162,28 +174,28 @@
         padding: 0.5rem 1rem;
         transition: all 0.3s ease;
     }
-    
+
     .btn-group .btn:first-child {
         border-top-left-radius: 8px;
         border-bottom-left-radius: 8px;
     }
-    
+
     .btn-group .btn:last-child {
         border-top-right-radius: 8px;
         border-bottom-right-radius: 8px;
     }
-    
+
     .btn-group .btn.active {
         background: linear-gradient(135deg, var(--primary-color), #224abe);
         border-color: var(--primary-color);
         transform: scale(1.05);
     }
-    
+
     .btn-group .btn:hover {
         transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
-    
+
     /* Actions rapides améliorées */
     .quick-action-btn {
         border-radius: 12px;
@@ -191,35 +203,35 @@
         padding: 1rem;
         transition: all 0.3s ease;
         border: none;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
-    
+
     .quick-action-btn:hover {
         transform: translateY(-3px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
         text-decoration: none;
     }
-    
+
     .quick-action-btn.btn-info {
         background: linear-gradient(135deg, var(--info-color), #2a96a4);
         color: white;
     }
-    
+
     .quick-action-btn.btn-warning {
         background: linear-gradient(135deg, var(--warning-color), #dda20a);
         color: white;
     }
-    
+
     .quick-action-btn.btn-success {
         background: linear-gradient(135deg, var(--success-color), #17a673);
         color: white;
     }
-    
+
     .quick-action-btn.btn-primary {
         background: linear-gradient(135deg, var(--primary-color), #224abe);
         color: white;
     }
-    
+
     /* Animations d'entrée */
     @keyframes fadeInUp {
         from {
@@ -231,33 +243,46 @@
             transform: translateY(0);
         }
     }
-    
-    .stats-card, .chart-card {
+
+    .stats-card,
+    .chart-card {
         animation: fadeInUp 0.6s ease-out;
     }
-    
-    .stats-card:nth-child(1) { animation-delay: 0.1s; }
-    .stats-card:nth-child(2) { animation-delay: 0.2s; }
-    .stats-card:nth-child(3) { animation-delay: 0.3s; }
-    .stats-card:nth-child(4) { animation-delay: 0.4s; }
-    .stats-card:nth-child(5) { animation-delay: 0.5s; }
-    .stats-card:nth-child(6) { animation-delay: 0.6s; }
-    
+
+    .stats-card:nth-child(1) {
+        animation-delay: 0.1s;
+    }
+    .stats-card:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    .stats-card:nth-child(3) {
+        animation-delay: 0.3s;
+    }
+    .stats-card:nth-child(4) {
+        animation-delay: 0.4s;
+    }
+    .stats-card:nth-child(5) {
+        animation-delay: 0.5s;
+    }
+    .stats-card:nth-child(6) {
+        animation-delay: 0.6s;
+    }
+
     /* Responsive amélioré */
     @media (max-width: 768px) {
         .container-fluid {
             padding: 1rem 0;
         }
-        
+
         .dashboard-header {
             padding: 1.5rem;
             margin-bottom: 1.5rem;
         }
-        
+
         .stats-number {
             font-size: 2.2rem;
         }
-        
+
         .chart-container {
             height: 300px;
         }
@@ -277,7 +302,8 @@
             </div>
             <div class="col-auto">
                 <a href="/conversations" class="btn btn-light btn-lg">
-                    <i class="fas fa-list me-2"></i> Voir toutes les conversations
+                    <i class="fas fa-list me-2"></i> Voir toutes les
+                    conversations
                 </a>
             </div>
         </div>
@@ -290,9 +316,7 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="stats-label">
-                                Total SAV
-                            </div>
+                            <div class="stats-label">Total SAV</div>
                             <div class="stats-number">
                                 {{ total_conversations }}
                             </div>
@@ -310,12 +334,8 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="stats-label">
-                                Nouveaux SAV
-                            </div>
-                            <div class="stats-number">
-                                {{ nouveau_count }}
-                            </div>
+                            <div class="stats-label">Nouveaux SAV</div>
+                            <div class="stats-number">{{ nouveau_count }}</div>
                         </div>
                         <div class="col-auto">
                             <i class="fas fa-plus-circle stats-icon"></i>
@@ -330,12 +350,8 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="stats-label">
-                                En cours
-                            </div>
-                            <div class="stats-number">
-                                {{ en_cours_count }}
-                            </div>
+                            <div class="stats-label">En cours</div>
+                            <div class="stats-number">{{ en_cours_count }}</div>
                         </div>
                         <div class="col-auto">
                             <i class="fas fa-clock stats-icon"></i>
@@ -350,12 +366,8 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="stats-label">
-                                Terminés
-                            </div>
-                            <div class="stats-number">
-                                {{ termine_count }}
-                            </div>
+                            <div class="stats-label">Terminés</div>
+                            <div class="stats-number">{{ termine_count }}</div>
                         </div>
                         <div class="col-auto">
                             <i class="fas fa-check-circle stats-icon"></i>
@@ -373,9 +385,7 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="stats-label">
-                                SAV aujourd'hui
-                            </div>
+                            <div class="stats-label">SAV aujourd'hui</div>
                             <div class="stats-number">
                                 {{ today_conversations }}
                             </div>
@@ -395,9 +405,7 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="stats-label">
-                                SAV 30 derniers jours
-                            </div>
+                            <div class="stats-label">SAV 30 derniers jours</div>
                             <div class="stats-number">
                                 {{ recent_conversations }}
                             </div>
