@@ -1,27 +1,39 @@
-import os
 from pathlib import Path
+import os
 import sys
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from _pytest.monkeypatch import MonkeyPatch
 
-# Set required environment variables
-os.environ.setdefault("SECRET_KEY", "test-secret")
-os.environ.setdefault("DATABASE_URL", "sqlite://")
-os.environ.setdefault("ADMIN_USERNAME", "admin")
-os.environ.setdefault("ADMIN_EMAIL", "admin@example.com")
-os.environ.setdefault("ADMIN_PASSWORD", "adminpass")
-
-# Ensure project root is on sys.path
+# Ensure project root is on sys.path and as working directory
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+ORIG_CWD = Path.cwd()
+os.chdir(PROJECT_ROOT)
 
-from app import app
-from database import get_db
 from models import Base, User, Conversation
-from auth import get_current_active_user, get_password_hash
+
+_session_mp = MonkeyPatch()
+_session_mp.setenv("SECRET_KEY", "test-secret")
+_session_mp.setenv("DATABASE_URL", "sqlite://")
+_session_mp.setenv("ADMIN_USERNAME", "admin")
+_session_mp.setenv("ADMIN_EMAIL", "admin@example.com")
+_session_mp.setenv("ADMIN_PASSWORD", "adminpass")
+
+
+def pytest_sessionfinish(session, exitstatus):
+    _session_mp.undo()
+    os.chdir(ORIG_CWD)
+@pytest.fixture(autouse=True)
+def set_test_env(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "test-secret")
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("ADMIN_EMAIL", "admin@example.com")
+    monkeypatch.setenv("ADMIN_PASSWORD", "adminpass")
 
 # In-memory SQLite database for tests
 database_url = "sqlite://"
@@ -35,7 +47,18 @@ def override_get_db():
     finally:
         db.close()
 
-app.dependency_overrides[get_db] = override_get_db
+
+@pytest.fixture()
+def app(set_test_env):
+    from database import get_db
+    from app import app as fastapi_app
+
+    fastapi_app.dependency_overrides[get_db] = override_get_db
+    try:
+        yield fastapi_app
+    finally:
+        fastapi_app.dependency_overrides.pop(get_db, None)
+
 
 @pytest.fixture()
 def db():
@@ -49,6 +72,8 @@ def db():
 
 @pytest.fixture()
 def test_user(db):
+    from auth import get_password_hash
+
     user = User(
         username="tester",
         email="tester@example.com",
@@ -63,9 +88,12 @@ def test_user(db):
     return user
 
 @pytest.fixture()
-def client(db, test_user):
+def client(app, db, test_user):
+    from auth import get_current_active_user
+
     def override_current_active_user():
         return test_user
+
     app.dependency_overrides[get_current_active_user] = override_current_active_user
     with TestClient(app) as c:
         yield c
