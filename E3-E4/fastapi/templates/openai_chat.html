@@ -303,65 +303,11 @@
     });
 
     // Gérer l'envoi avec Enter et le retour à la ligne avec Shift+Enter
-    chatInput.addEventListener("keydown", async function (e) {
+    chatInput.addEventListener("keydown", function (e) {
         if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault(); // Empêcher le retour à la ligne
-            
-            const message = chatInput.value.trim();
-            if (!message) return;
-
-            // Ajouter le message utilisateur
-            addMessage(message, "user");
-            chatInput.value = "";
-            chatInput.style.height = "auto";
-
-            // Afficher l'indicateur de frappe
-            typingIndicator.style.display = "flex";
-
-            // Désactiver le bouton d'envoi
-            sendButton.disabled = true;
-
-            try {
-                const formData = new FormData();
-                formData.append("message", message);
-                formData.append("conversation_id", currentConversationId || "temp");
-
-                // Ajouter les images si présentes
-                const imageFiles = imageUpload.files;
-                for (let i = 0; i < imageFiles.length; i++) {
-                    formData.append("images", imageFiles[i]);
-                }
-
-                const response = await fetch("/api/chat", {
-                    method: "POST",
-                    body: formData,
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    addMessage(data.response, "assistant");
-                    currentConversationId = data.conversation_id;
-                } else {
-                    addMessage(
-                        "Désolé, une erreur s'est produite. Veuillez réessayer.",
-                        "assistant"
-                    );
-                }
-            } catch (error) {
-                console.error("Erreur:", error);
-                addMessage(
-                    "Désolé, une erreur s'est produite. Veuillez réessayer.",
-                    "assistant"
-                );
-            } finally {
-                typingIndicator.style.display = "none";
-                sendButton.disabled = false;
-                chatImagePreview.innerHTML = "";
-                imageUpload.value = "";
-            }
+            e.preventDefault();
+            chatForm.dispatchEvent(new Event("submit", { cancelable: true }));
         }
-        // Shift+Enter permet le retour à la ligne normalement
     });
 
     // Gérer l'upload d'images
@@ -384,62 +330,80 @@
         });
     });
 
-    // Envoyer le message
+    // Envoyer le message et/ou les images
     chatForm.addEventListener("submit", async function (e) {
         e.preventDefault();
 
         const message = chatInput.value.trim();
-        if (!message) return;
+        const imageFiles = Array.from(imageUpload.files);
 
-        // Ajouter le message utilisateur
-        addMessage(message, "user");
-        chatInput.value = "";
-        chatInput.style.height = "auto";
+        if (imageFiles.length > 0) {
+            // Afficher immédiatement les images dans la conversation
+            imageFiles.forEach(file => addImageMessage(file));
 
-        // Afficher l'indicateur de frappe
-        typingIndicator.style.display = "flex";
+            typingIndicator.style.display = "flex";
+            sendButton.disabled = true;
 
-        // Désactiver le bouton d'envoi
-        sendButton.disabled = true;
+            try {
+                const formDataImg = new FormData();
+                formDataImg.append("conversation_id", currentConversationId || "temp");
+                imageFiles.forEach(f => formDataImg.append("images", f));
 
-        try {
-            const formData = new FormData();
-            formData.append("message", message);
-            formData.append("conversation_id", currentConversationId || "temp");
+                const response = await fetch("/api/upload_images", {
+                    method: "POST",
+                    body: formDataImg,
+                });
 
-            // Ajouter les images si présentes
-            const imageFiles = imageUpload.files;
-            for (let i = 0; i < imageFiles.length; i++) {
-                formData.append("images", imageFiles[i]);
+                const data = await response.json();
+                if (data.response) {
+                    addMessage(data.response, "assistant");
+                    currentConversationId = data.conversation_id;
+                } else {
+                    addMessage("Désolé, une erreur s'est produite. Veuillez réessayer.", "assistant");
+                }
+            } catch (error) {
+                console.error("Erreur:", error);
+                addMessage("Désolé, une erreur s'est produite. Veuillez réessayer.", "assistant");
+            } finally {
+                typingIndicator.style.display = "none";
+                sendButton.disabled = false;
+                chatImagePreview.innerHTML = "";
+                imageUpload.value = "";
             }
+        }
 
-            const response = await fetch("/api/chat", {
-                method: "POST",
-                body: formData,
-            });
+        if (message) {
+            addMessage(message, "user");
+            chatInput.value = "";
+            chatInput.style.height = "auto";
 
-            const data = await response.json();
+            typingIndicator.style.display = "flex";
+            sendButton.disabled = true;
 
-            if (data.success) {
-                addMessage(data.response, "assistant");
-                currentConversationId = data.conversation_id;
-            } else {
-                addMessage(
-                    "Désolé, une erreur s'est produite. Veuillez réessayer.",
-                    "assistant"
-                );
+            try {
+                const formData = new FormData();
+                formData.append("message", message);
+                formData.append("conversation_id", currentConversationId || "temp");
+
+                const response = await fetch("/api/chat", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    addMessage(data.response, "assistant");
+                    currentConversationId = data.conversation_id;
+                } else {
+                    addMessage("Désolé, une erreur s'est produite. Veuillez réessayer.", "assistant");
+                }
+            } catch (error) {
+                console.error("Erreur:", error);
+                addMessage("Désolé, une erreur s'est produite. Veuillez réessayer.", "assistant");
+            } finally {
+                typingIndicator.style.display = "none";
+                sendButton.disabled = false;
             }
-        } catch (error) {
-            console.error("Erreur:", error);
-            addMessage(
-                "Désolé, une erreur s'est produite. Veuillez réessayer.",
-                "assistant"
-            );
-        } finally {
-            typingIndicator.style.display = "none";
-            sendButton.disabled = false;
-            chatImagePreview.innerHTML = "";
-            imageUpload.value = "";
         }
     });
 
@@ -511,24 +475,38 @@
     function addMessage(content, role) {
         const messageDiv = document.createElement("div");
         messageDiv.className = `message ${role}`;
-        
-        // Traiter le markdown si c'est un message de l'assistant
+
         if (role === 'assistant') {
-            // Configurer marked pour la sécurité
-            marked.setOptions({
-                breaks: true,
-                gfm: true
-            });
+            marked.setOptions({ breaks: true, gfm: true });
             messageDiv.innerHTML = marked.parse(content);
         } else {
-            // Pour les messages utilisateur, afficher en texte simple
-            messageDiv.textContent = content;
+            const span = document.createElement("span");
+            span.className = "message-text";
+            span.textContent = content;
+            messageDiv.appendChild(span);
         }
 
-        // Insérer avant l'indicateur de frappe
         chatMessages.insertBefore(messageDiv, typingIndicator);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
 
-        // Faire défiler vers le bas
+    function addImageMessage(file) {
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message user";
+
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        img.style.maxWidth = "300px";
+        img.style.marginBottom = "10px";
+        img.style.borderRadius = "5px";
+        messageDiv.appendChild(img);
+
+        const span = document.createElement("span");
+        span.className = "message-text";
+        span.textContent = "Photo envoyée";
+        messageDiv.appendChild(span);
+
+        chatMessages.insertBefore(messageDiv, typingIndicator);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 </script>

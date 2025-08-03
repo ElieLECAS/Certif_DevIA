@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, List
 import json
-import os
 from pathlib import Path
 import logging
 from models import User, ClientUser, Conversation
@@ -272,34 +271,34 @@ async def conversation_detail(
 @router.get("/client_home", response_class=HTMLResponse, response_model=None)
 async def client_home(
     request: Request,
-    status: Optional[str] = None,
+    status_filter: Optional[str] = None,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     client_user = get_client_user(db, current_user)
     if not client_user:
         return RedirectResponse(url="/conversations", status_code=status.HTTP_302_FOUND)
-    
+
     # Récupérer les conversations du client
     query = db.query(Conversation).filter(Conversation.user_id == current_user.id)
-    
+
     # Appliquer le filtre de statut si spécifié
-    if status:
-        logger.info(f"Filtrage client par statut: {status}")
-        query = query.filter(Conversation.status == status)
+    if status_filter:
+        logger.info(f"Filtrage client par statut: {status_filter}")
+        query = query.filter(Conversation.status == status_filter)
     else:
         logger.info("Aucun filtre de statut appliqué pour le client")
-    
+
     conversations = query.order_by(Conversation.updated_at.desc()).all()
     logger.info(f"Nombre de conversations client trouvées: {len(conversations)}")
-    
+
     return templates.TemplateResponse(
         "client_home.html",
         {
             "request": request,
             "user": current_user,
             "conversations": conversations,
-            "status_filter": status
+            "status_filter": status_filter
         }
     )
 
@@ -361,12 +360,6 @@ async def send_message(
         
         # Validation des entrées avec ChatMessage
         chat_message = ChatMessage(message=user_input, conversation_id=conversation_id)
-        
-        # Récupérer les images si présentes
-        images = []
-        for key, value in form_data.items():
-            if key.startswith("images") and hasattr(value, 'file'):
-                images.append(value)
         
         if not chat_message.message:
             raise HTTPException(status_code=400, detail="Le message ne peut pas être vide")
@@ -537,30 +530,22 @@ async def upload_images(
         # Validation des fichiers uploadés
         if not images:
             raise HTTPException(status_code=400, detail="Aucune image téléchargée")
-        
-        # Validation des types de fichiers
+
         for image in images:
             if not image.content_type or not image.content_type.startswith('image/'):
                 raise HTTPException(status_code=400, detail=f"Type de fichier non autorisé: {image.content_type}")
-        
-        # Configuration OpenAI
-        try:
-            openai_api_key = get_openai_api_key()
-        except EnvironmentError:
-            raise HTTPException(status_code=401, detail=MISSING_OPENAI_KEY_MSG)
-        
-        # Charger les informations client et récupérer ou créer la conversation
-        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user)
+
+        # Récupérer le nom du client et la conversation
+        preprompt, client_json, renseignements, retours, commandes = load_all_jsons(user=current_user, db=db)
         client_name = "Client"
-        if client_json and isinstance(client_json, dict):
-            if 'client_informations' in client_json:
-                client_info = client_json['client_informations']
-                nom = client_info.get('nom', '')
-                prenom = client_info.get('prenom', '')
-                if nom and prenom:
-                    client_name = f"{prenom} {nom}"
-                elif nom:
-                    client_name = nom
+        if client_json and isinstance(client_json, dict) and 'client_informations' in client_json:
+            client_info = client_json['client_informations']
+            nom = client_info.get('nom', '')
+            prenom = client_info.get('prenom', '')
+            if nom and prenom:
+                client_name = f"{prenom} {nom}"
+            elif nom:
+                client_name = nom
 
         conversation = get_or_create_conversation(
             db=db,
@@ -568,47 +553,29 @@ async def upload_images(
             conversation_id=conversation_id,
             client_name=client_name,
         )
-        
-        # Sauvegarder les images
+
+        # Sauvegarder les images et ajouter un message utilisateur
         image_paths = []
         for image in images:
             path = await save_uploaded_file(image)
             image_paths.append(path)
-            conversation.add_message(
-                "user",
-                f"📤 Image envoyée: {os.path.basename(path)}",
-                image_path=path
-            )
-        
-        # Initialiser LLM et FAISS
-        from langchain_openai import ChatOpenAI
-        llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.4)
-        vectorstore = get_vectorstore(openai_api_key)
-        
-        # Générer une réponse pour les images
-        history_text = get_conversation_history(conversation.history)
-        faiss_results = vectorstore.similarity_search("Photos envoyées pour SAV")
-        faiss_context = "\n".join([doc.page_content for doc in faiss_results])
-        
-        complete_context = (
-            f"{history_text}\n"
-            "Context from FAISS:\n"
-            f"{faiss_context}\n"
-            "User: Des photos ont été envoyées. Veuillez les analyser et donner des premiers conseils au client."
-        )
-        
-        response = llm.invoke(complete_context)
-        assistant_response = response.content if hasattr(response, 'content') else "J'ai bien reçu vos images. Comment puis-je vous aider avec ces photos ?"
-        
+            conversation.add_message("user", "Photo envoyée", image_path=path)
+
+        # Réponse générique de l'assistant
+        if len(image_paths) > 1:
+            assistant_response = "Merci pour les photos. Elles seront transmises à un technicien."
+        else:
+            assistant_response = "Merci pour la photo. Elle sera transmise à un technicien."
+
         conversation.add_message("assistant", assistant_response)
         db.commit()
-        
+
         return {
             "response": assistant_response,
             "conversation_id": conversation.id,
             "history": conversation.history
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:

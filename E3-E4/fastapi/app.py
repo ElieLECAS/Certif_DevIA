@@ -78,7 +78,10 @@ app.add_middleware(
 )
 
 # Static files et templates
+# Créer le dossier d'upload si nécessaire
+os.makedirs("uploads", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 templates = Jinja2Templates(directory="templates")
 
 # Importer et inclure les routes

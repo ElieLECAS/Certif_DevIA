@@ -1,6 +1,6 @@
 import io
+import io
 import pytest
-
 
 from utils import get_openai_api_key, MISSING_OPENAI_KEY_MSG
 
@@ -24,9 +24,10 @@ def test_chat_endpoint_requires_key(client, monkeypatch):
     assert response.json()["detail"] == MISSING_OPENAI_KEY_MSG
 
 
-def test_upload_images_requires_key(client, monkeypatch):
+def test_upload_images_without_key(client, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     files = {"images": ("test.jpg", io.BytesIO(b"data"), "image/jpeg")}
     response = client.post("/api/upload_images", files=files, data={"conversation_id": "temp"})
-    assert response.status_code == 401
-    assert response.json()["detail"] == MISSING_OPENAI_KEY_MSG
+    assert response.status_code == 200
+    data = response.json()
+    assert "response" in data
