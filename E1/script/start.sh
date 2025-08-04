@@ -23,8 +23,8 @@ echo "MYSQL_PASSWORD=${MYSQL_PASSWORD}" >> /etc/cron.d/mysql_sync_cron
 echo "MYSQL_PORT=${MYSQL_PORT:-3306}" >> /etc/cron.d/mysql_sync_cron
 
 # Ajouter les tâches cron
-# Service de traitement des logs : toutes les 15 minutes
-echo "*/15 * * * * root cd /app && /usr/local/bin/python /app/ftp_log_service.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/log_processing_cron
+# Service de traitement des logs : tous les jours à 11h
+echo "* 11 * * * root cd /app && /usr/local/bin/python /app/ftp_log_service.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/log_processing_cron
 
 # Service MySQL : tous les jours à 9h et 14h
 echo "0 9,14 * * * root cd /app && /usr/local/bin/python /app/mysql_sync_service.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/mysql_sync_cron
