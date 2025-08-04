@@ -3,7 +3,7 @@ version: "3.9"
 services:
     sftp:
         image: atmoz/sftp
-        container_name: sftp-server
+        container_name: e1-sftp-server
         volumes:
             - ./logs:/home/sftp_user/logs
             - sftp_ssh_keys:/etc/ssh
