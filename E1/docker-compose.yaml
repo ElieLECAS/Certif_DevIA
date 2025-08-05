@@ -3,7 +3,7 @@ version: "3.9"
 services:
     sftp:
         image: atmoz/sftp
-        container_name: sftp-server
+        container_name: e1-sftp-server
         volumes:
             - ./logs:/home/sftp_user/logs
             - sftp_ssh_keys:/etc/ssh
@@ -48,8 +48,6 @@ services:
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
         volumes:
             - pgdata:/var/lib/postgresql/data
-        ports:
-            - "${POSTGRES_PORT}:5432"
         restart: unless-stopped
         healthcheck:
             test:
@@ -73,8 +71,6 @@ services:
         volumes:
             - mysql_data:/var/lib/mysql
             - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-        ports:
-            - "3306:3306"
         restart: unless-stopped
         healthcheck:
             test:
@@ -115,7 +111,7 @@ services:
             # Configuration SFTP
             - FTP_HOST=sftp-server
             # Configuration de la synchronisation
-            - DELETE_AFTER_SYNC=${DELETE_AFTER_SYNC:-false} # Supprimer les fichiers après traitement
+            - DELETE_AFTER_SYNC=${DELETE_AFTER_SYNC}
         volumes:
             - ./logs:/app/logs
             - ./script/sync_logs:/app/sync_logs
@@ -132,7 +128,7 @@ services:
             - POSTGRES_DB=${POSTGRES_DB}
             - POSTGRES_USER=${POSTGRES_USER}
             - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-            - SECRET_KEY=${SECRET_KEY:-09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7}
+            - SECRET_KEY=${SECRET_KEY}
         ports:
             - "8000:8000"
         volumes:

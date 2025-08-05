@@ -285,23 +285,7 @@ def initialize_faiss(openai_api_key: str, *, chunk_size: int = 1500, chunk_overl
                 faiss_index_path.mkdir(parents=True, exist_ok=True)
                 vectorstore.save_local(str(faiss_index_path))
                 logger.info("Index FAISS créé et sauvegardé dans %s", faiss_index_path)
-            else:
-                # Créer un vectorstore avec des documents par défaut s'il n'y a pas de PDFs
-                logger.info("Aucun document PDF trouvé, utilisation des documents par défaut")
-                default_documents = [
-                    "PROFERM est spécialisé dans les portes d'entrée, les vitrages et les stores.",
-                    "La gamme LUMEAL propose des solutions d'éclairage intégrées pour les portes d'entrée.",
-                    "Les produits INNOSLIDE sont des systèmes de vitrage coulissants innovants.",
-                    "Le catalogue général PROFERM 2024 contient toutes nos références de portes d'entrée.",
-                    "Les stores PROFERM sont disponibles en différentes couleurs et matériaux.",
-                    "Pour résoudre les problèmes de connexion, vérifiez d'abord votre câble réseau et redémarrez votre équipement.",
-                    "Les retours de produits sont acceptés dans les 30 jours suivant l'achat avec la facture d'origine.",
-                    "Le support technique est disponible du lundi au vendredi de 9h à 18h.",
-                    "En cas de problème persistant, contactez notre service client au 01 23 45 67 89."
-                ]
-                vectorstore = FAISS.from_texts(default_documents, embeddings)
-                faiss_index_path.mkdir(parents=True, exist_ok=True)
-                vectorstore.save_local(str(faiss_index_path))
+            
         else:
             logger.info("Chargement de l'index FAISS existant depuis %s", faiss_index_path)
             vectorstore = FAISS.load_local(str(faiss_index_path), embeddings, allow_dangerous_deserialization=True)
@@ -323,4 +307,3 @@ def get_conversation_history(conversation_history: List[Dict]) -> str:
         f"{prefixes.get(m.get('role'), '')}: {m.get('content', '')}"
         for m in conversation_history if m.get('content')
     )
- 
