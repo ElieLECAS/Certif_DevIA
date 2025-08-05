@@ -1,147 +1,151 @@
-# Documentation MyCustomVectorDB
+# Service IA – Projet E2
 
-Cette classe hérite de `VannaBase` et implémente une base de données vectorielle simple pour stocker et gérer les données SQL.
+## I. Présentation du service IA
 
-## Constructeur
+-   **Nom du service** : MyVanna (bibliothèque [Vanna](https://github.com/vanna-ai/vanna) + API OpenAI)
+-   **Version** : 0.7.9 pour la bibliothèque `vanna[openai]`
+-   **Modèle** : `gpt-4o-mini`, fourni par OpenAI et configuré via `OpenAI_Chat`
+-   **Objectif** : générer automatiquement des requêtes SQL à partir de questions en langage naturel et interroger la base de données _Sakila_.
+
+## II. Installation et accessibilité
+
+1. **Clonage et environnement**
+
+    ```bash
+    git clone <URL_DU_DEPOT>
+    cd Certif_DevIA/E2
+    python -m venv .venv
+    source .venv/bin/activate  # Windows : .venv\Scripts\activate
+    pip install vanna[openai]
+    ```
+
+2. **Clé d’API OpenAI**
+   Définissez la variable d’environnement OPENAI_API_KEY :
+
+    ```bash
+    export OPENAI_API_KEY="votre_cle_api"  # Windows : set OPENAI_API_KEY=...
+    ```
+
+3. **Lancement du service**
+
+    Ouvrez et exécutez le notebook `sakila.ipynb` jusqu’à la cellule finale qui démarre l’application Flask :
+
+    ```python
+    VannaFlaskApp(
+        vn=vn,
+        auth=SimplePassword(users=[{"email": "admin@example.com", "password": "password"}]),
+        allow_llm_to_see_data=True,
+        title="E2 - Sakila",
+        subtitle="Interrogez la base de données Sakila",
+        show_training_data=True,
+        sql=True,
+        table=True,
+        chart=False,
+        summarization=True,
+        ask_results_correct=True,
+    ).run()
+    ```
+
+    L’interface est accessible sur http://localhost:5000.
+
+4. **Tests d’accessibilité**
+
+    - Vérifier que le port 5000 est ouvert.
+    - Exemple : `curl http://localhost:5000` (retourne la page d’accueil du service).
+
+5. **Gestion des accès**
+    - Authentification SimplePassword (identifiants par défaut : admin@example.com / password).
+    - Possibilité d’étendre la gestion des utilisateurs dans la configuration de VannaFlaskApp.
+
+## III. Configuration fonctionnelle et technique
+
+-   **Paramètres clés**
+
+    -   `OPENAI_API_KEY` : clé d’API OpenAI.
+    -   `model` : gpt-4o-mini.
+    -   Base de données : `sqlite-sakila.db` connectée via `vn.connect_to_sqlite('sqlite-sakila.db')`.
+
+-   **Conformité fonctionnelle**
+
+    -   Répond aux besoins de génération de SQL, restitution de tableaux et résumés.
+    -   Ressources nécessaires : connexion internet (accès API), CPU modeste, ~512 Mo RAM.
+
+-   **Interconnexions**
+    -   Données : `sqlite-sakila.db`.
+    -   Documentation : `SAKILA_DOCUMENTATION.md`.
+    -   Jeux de questions/tests : `QUESTIONS_TEST.md`.
+
+## IV. Monitoring et supervision
+
+-   **Logs** : le serveur Flask émet des logs sur la sortie standard ; redirigez-les vers un fichier ou un système de collecte (ex. journalctl, ELK).
+-   **Tableaux de bord** : pour un suivi avancé, l’API peut être instrumentée via Prometheus ou **Langfuse**.
+-   **Alertes** : à mettre en place en fonction de vos outils de supervision (ex. seuil d’erreur HTTP, temps de réponse).
+
+### Monitoring avec Langfuse
+
+Le projet intègre la solution [Langfuse](https://langfuse.com/) pour le monitoring des requêtes LLM et le suivi des performances du service IA. Langfuse permet de :
+
+-   Visualiser les requêtes envoyées à l’API OpenAI (inputs/outputs, temps de réponse, erreurs, etc.)
+-   Suivre l’utilisation du modèle, les métriques de coût, et l’historique des interactions
+-   Auditer la qualité des réponses générées et détecter d’éventuels problèmes
+
+**Mise en œuvre dans le notebook `sakila.ipynb` :**
+
+-   Les variables d’environnement `LANGFUSE_SECRET_KEY` et `LANGFUSE_PUBLIC_KEY` doivent être définies (voir début du notebook).
+-   L’intégration se fait via l’import `from langfuse.openai import openai` et la configuration des clés dans le code Python.
+-   Lors de l’exécution du service Flask (cellule finale du notebook), toutes les requêtes et réponses sont automatiquement tracées et consultables sur le dashboard Langfuse (exemple : https://cloud.langfuse.com).
+
+Pour activer le monitoring :
+
+1. Créez un compte sur Langfuse et récupérez vos clés API.
+2. Ajoutez-les dans un fichier `.env` ou dans vos variables d’environnement :
+    ```bash
+    export LANGFUSE_SECRET_KEY="votre_cle"
+    export LANGFUSE_PUBLIC_KEY="votre_cle_publique"
+    ```
+3. Redémarrez le notebook pour que la prise en compte soit effective.
+
+---
+
+## V. Documentation et accessibilité
+
+-   **Documentation utilisateur** :
+    -   README actuel décrivant la classe MyCustomVectorDB.
+    -   Notebook d’exemple : `sakila.ipynb` (démonstration complète).
+-   **Données manipulées** : requêtes SQL sur la base Sakila (films, acteurs, clients, locations).
+-   **Accessibilité** :
+    -   Le présent fichier est en Markdown, exportable en HTML ou PDF accessible (via pandoc ou outils équivalents).
+    -   Structuration en sections, titres et listes pour une lecture facilitée.
+    -   Respect des bonnes pratiques WCAG : textes contrastés, absence de code couleur exclusive, langue explicitée.
+
+## VI. Entraînement du modèle (fine-tuning)
+
+L’entraînement du modèle (association questions/réponses SQL) est réalisé directement dans le notebook `sakila.ipynb` :
+
+-   **Extraction du schéma** : le code extrait automatiquement tous les DDL (tables, vues, triggers) de la base `sqlite-sakila.db` et les ajoute à la base de connaissances du modèle via `vn.train(ddl=...)`.
+-   **Ajout de paires question/SQL** : une liste de questions en français et leurs requêtes SQL correspondantes sont ajoutées à l’aide de `vn.train(question=..., sql=...)`.
+-   **Visualisation** : il est possible de visualiser l’ensemble des données d’entraînement via `vn.get_training_data()` (voir exemple dans le notebook).
+
+**À retenir :**
+
+-   L’entraînement n’est pas un fine-tuning du modèle OpenAI, mais un enrichissement de la base de connaissances locale utilisée pour la génération de SQL.
+-   Vous pouvez ajouter vos propres exemples pour améliorer la pertinence des réponses.
+
+---
+
+## Exemples d’usage
 
 ```python
-def __init__(self, config=None):
-    super().__init__(config)
-    self.ddl_list = []
-    self.documentation_list = []
-    self.question_sql_list = []
+from vanna.openai import OpenAI_Chat
+from my_module import MyVanna  # défini dans sakila.ipynb
+
+vn = MyVanna(config={'api_key': 'VOTRE_CLE', 'model': 'gpt-4o-mini'})
+vn.connect_to_sqlite('sqlite-sakila.db')
+print(vn.ask("Combien de films durent plus de 2h ?"))
 ```
 
--   Initialise la classe avec trois listes vides
--   `ddl_list` : stocke les instructions DDL (CREATE TABLE, etc.)
--   `documentation_list` : stocke la documentation
--   `question_sql_list` : stocke les paires question/SQL
+## Références
 
-## Méthodes d'ajout de données
-
-### `add_ddl`
-
-```python
-def add_ddl(self, ddl: str, **kwargs) -> str:
-    self.ddl_list.append(ddl)
-    return ddl
-```
-
--   **Objectif** : Ajoute une instruction DDL à la liste
--   **Usage** : Enregistre la structure de la base de données (tables, index, etc.)
--   **Retour** : L'instruction DDL ajoutée
-
-### `add_documentation`
-
-```python
-def add_documentation(self, doc: str, **kwargs) -> str:
-    self.documentation_list.append(doc)
-    return doc
-```
-
--   **Objectif** : Ajoute de la documentation
--   **Usage** : Enrichit le contexte pour les futures requêtes
--   **Retour** : La documentation ajoutée
-
-### `add_question_sql`
-
-```python
-def add_question_sql(self, question: str, sql: str, **kwargs) -> str:
-    self.question_sql_list.append((question, sql))
-    return sql
-```
-
--   **Objectif** : Enregistre une paire question/SQL
--   **Usage** : Apprentissage - associe une question en langage naturel à sa requête SQL
--   **Retour** : La requête SQL ajoutée
-
-## Méthodes de récupération
-
-### `get_related_ddl`
-
-```python
-def get_related_ddl(self, question: str, **kwargs) -> list:
-    return self.ddl_list
-```
-
--   **Objectif** : Retourne les DDL pertinents pour une question
--   **Note** : Implémentation basique - retourne tous les DDL
--   **Retour** : Liste de tous les DDL
-
-### `get_related_documentation`
-
-```python
-def get_related_documentation(self, question: str, **kwargs) -> list:
-    return self.documentation_list
-```
-
--   **Objectif** : Retourne la documentation pertinente
--   **Note** : Implémentation basique - retourne toute la documentation
--   **Retour** : Liste de toute la documentation
-
-### `get_similar_question_sql`
-
-```python
-def get_similar_question_sql(self, question: str, **kwargs) -> list:
-    return self.question_sql_list
-```
-
--   **Objectif** : Retourne les questions/SQL similaires
--   **Note** : Implémentation basique - retourne toutes les paires
--   **Retour** : Liste de toutes les paires question/SQL
-
-## Méthodes de gestion des données
-
-### `get_training_data`
-
-```python
-def get_training_data(self, **kwargs) -> pd.DataFrame:
-    max_len = max(len(self.ddl_list), len(self.documentation_list), len(self.question_sql_list))
-    ddl_extended = self.ddl_list + [None] * (max_len - len(self.ddl_list))
-    doc_extended = self.documentation_list + [None] * (max_len - len(self.documentation_list))
-    qs_extended = self.question_sql_list + [None] * (max_len - len(self.question_sql_list))
-
-    data = {
-        'ddl': ddl_extended,
-        'documentation': doc_extended,
-        'question_sql': qs_extended
-    }
-    return pd.DataFrame(data)
-```
-
--   **Objectif** : Crée un DataFrame avec toutes les données d'entraînement
--   **Note** : Égalise la longueur des listes avec `None`
--   **Retour** : DataFrame pandas avec toutes les données
-
-### `remove_training_data`
-
-```python
-def remove_training_data(self, id: str, **kwargs) -> bool:
-    return True
-```
-
--   **Objectif** : Devrait supprimer des données d'entraînement
--   **Note** : Implémentation factice - ne fait rien
--   **Retour** : Toujours True
-
-### `generate_embedding`
-
-```python
-def generate_embedding(self, text: str, **kwargs) -> list:
-    return [0] * 10
-```
-
--   **Objectif** : Génère un vecteur d'embedding pour un texte
--   **Note** : Implémentation factice - retourne un vecteur de 10 zéros
--   **Retour** : Liste de 10 zéros
-
-## Limitations
-
-Cette implémentation est basique et présente plusieurs limitations :
-
-1. Pas de vraie recherche sémantique (retourne toutes les données)
-2. Pas de persistance (données en mémoire uniquement)
-3. Pas de vrais embeddings (vecteurs de zéros)
-4. Pas de gestion de la suppression des données
-
-Pour une utilisation en production, il est recommandé d'utiliser `VannaDB_VectorStore` qui fournit une implémentation complète et optimisée de toutes ces fonctionnalités.
+-   Définition de MyVanna et configuration du modèle OpenAI
+-   Connexion à la base SQLite
+-   Paramétrage du serveur Flask et de l’authentification
