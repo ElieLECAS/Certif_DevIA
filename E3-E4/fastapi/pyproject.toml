@@ -1,0 +1,102 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fastapi-chatbot-sav"
+version = "1.0.0"
+description = "Application FastAPI Chatbot SAV avec monitoring Prometheus/Grafana"
+authors = [
+    {name = "DevIA Team", email = "contact@devia.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "psycopg2-binary>=2.9.0",
+    "sqlalchemy>=2.0.0",
+    "python-jose[cryptography]>=3.3.0",
+    "bcrypt>=4.0.0",
+    "passlib[bcrypt]>=1.7.0",
+    "python-multipart>=0.0.6",
+    "jinja2>=3.1.0",
+    "aiofiles>=23.0.0",
+    "pydantic[email]>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "prometheus-client>=0.19.0",
+    "psutil>=5.9.0",
+    "langchain>=0.1.0",
+    "langchain-openai>=0.1.0",
+    "langchain-text-splitters>=0.1.0",
+    "langchain-community>=0.1.0",
+    "faiss-cpu>=1.7.0",
+    "pymupdf>=1.23.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "matplotlib>=3.7.0",
+    "plotly>=5.0.0",
+    "scikit-learn>=1.3.0",
+    "joblib>=1.3.0",
+    "requests>=2.31.0",
+    "httpx>=0.24.0",
+    "thefuzz>=0.19.0",
+    "fuzzywuzzy>=0.18.0",
+    "alembic>=1.12.0",
+    "fastapi-cors>=0.0.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-mock>=3.11.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "isort>=5.12.0",
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=1.3.0",
+    "ipython>=8.0.0",
+    "ipdb>=0.13.0",
+]
+
+test = [
+    "pytest>=7.4.0",
+    "pytest-mock>=3.11.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/devia/fastapi-chatbot-sav"
+Repository = "https://github.com/devia/fastapi-chatbot-sav"
+Documentation = "https://fastapi-chatbot-sav.readthedocs.io"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=. --cov-report=term-missing --cov-report=html:htmlcov"

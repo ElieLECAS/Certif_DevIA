@@ -108,14 +108,18 @@ def update_system_metrics():
     """
     Met à jour les métriques système.
     """
-    # Métriques mémoire
-    process = psutil.Process(os.getpid())
-    memory_info = process.memory_info()
-    MEMORY_USAGE.set(memory_info.rss)
-    
-    # Métriques CPU
-    cpu_percent = process.cpu_percent()
-    CPU_USAGE.set(cpu_percent)
+    try:
+        # Métriques mémoire
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        MEMORY_USAGE.set(memory_info.rss)
+        
+        # Métriques CPU
+        cpu_percent = process.cpu_percent()
+        CPU_USAGE.set(cpu_percent)
+    except Exception as e:
+        # En cas d'erreur, on ne fait rien pour éviter de casser l'application
+        pass
 
 def get_metrics():
     """

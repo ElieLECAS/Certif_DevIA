@@ -1,62 +1,57 @@
 # FastAPI et serveur
-fastapi==0.104.1
-uvicorn[standard]
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
 
 # Base de données
-psycopg2-binary==2.9.9
-sqlalchemy
+psycopg2-binary>=2.9.0
+sqlalchemy>=2.0.0
 
 # Authentification et sécurité
-python-jose[cryptography]==3.3.0
-bcrypt==4.0.1
-passlib[bcrypt]
-python-multipart==0.0.6
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.0.0
+passlib[bcrypt]>=1.7.0
+python-multipart>=0.0.6
 
 # Templates et interface
-jinja2==3.1.2
-aiofiles==23.2.1
+jinja2>=3.1.0
+aiofiles>=23.0.0
 
 # Validation des données
-pydantic[email]==2.5.0
+pydantic[email]>=2.0.0
 
 # Configuration
-python-dotenv==1.0.1
+python-dotenv>=1.0.0
 
 # Monitoring et métriques
-prometheus-client==0.19.0
-starlette-prometheus==0.7.0
+prometheus-client>=0.19.0
+psutil>=5.9.0
 
-# IA et LangChain (versions du projet Django)
-langchain 
-langchain-openai
-langchain-text-splitters
-langchain-community
-faiss-cpu 
-pymupdf
+# IA et LangChain
+langchain>=0.1.0
+langchain-openai>=0.1.0
+langchain-text-splitters>=0.1.0
+langchain-community>=0.1.0
+faiss-cpu>=1.7.0
+pymupdf>=1.23.0
 
-# Data science et traitement (versions du projet Django)
-pandas==2.2.0
-numpy==1.26.4
-matplotlib
-plotly
-scikit-learn
-joblib
+# Data science et traitement
+pandas>=2.0.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+plotly>=5.0.0
+scikit-learn>=1.3.0
+joblib>=1.3.0
 
 # Requêtes HTTP
-requests
-httpx<0.28
-
-# Tests (pour le développement)
-pytest>=7.4.0
-pytest-mock>=3.11.1
-pytest-cov>=4.1.0
+requests>=2.31.0
+httpx>=0.24.0
 
 # Recherche floue
-thefuzz
-fuzzywuzzy
+thefuzz>=0.19.0
+fuzzywuzzy>=0.18.0
 
 # Migrations de base de données
-alembic==1.12.1
+alembic>=1.12.0
 
 # CORS (pour les requêtes cross-origin)
-fastapi-cors==0.0.6
+fastapi-cors>=0.0.6
