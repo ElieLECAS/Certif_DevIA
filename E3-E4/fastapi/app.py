@@ -9,6 +9,9 @@ from sqlalchemy.exc import OperationalError
 import uvicorn
 import os
 
+# Import du monitoring
+from monitoring import PrometheusMiddleware, create_metrics_response
+
 # Fonction de lifespan pour remplacer @app.on_event
 def create_default_admin(db):
     """Créer l'utilisateur administrateur par défaut si nécessaire."""
@@ -65,6 +68,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Ajouter le middleware Prometheus
+app.add_middleware(PrometheusMiddleware)
+
 # Configuration CORS
 # Récupérer les origines autorisées depuis les variables d'environnement
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:8000").split(",")
@@ -80,6 +86,18 @@ app.add_middleware(
 # Static files et templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# Endpoint pour les métriques Prometheus
+@app.get("/metrics")
+async def metrics():
+    """Endpoint pour les métriques Prometheus."""
+    return create_metrics_response()
+
+# Endpoint de health check
+@app.get("/health")
+async def health_check():
+    """Endpoint de vérification de santé de l'application."""
+    return {"status": "healthy", "service": "chatbot-sav"}
 
 # Importer et inclure les routes
 from routes import router

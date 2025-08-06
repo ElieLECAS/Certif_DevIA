@@ -1,0 +1,124 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "FastAPI Chatbot SAV - Monitoring",
+    "tags": ["fastapi", "chatbot", "monitoring"],
+    "style": "dark",
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Requêtes HTTP par minute",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[1m])",
+            "legendFormat": "{{method}} {{endpoint}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Temps de réponse moyen",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])",
+            "legendFormat": "{{method}} {{endpoint}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Requêtes actives",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "http_requests_active",
+            "legendFormat": "Requêtes actives"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Utilisation mémoire",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "memory_usage_bytes / 1024 / 1024",
+            "legendFormat": "Mémoire (MB)"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Utilisation CPU",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "cpu_usage_percent",
+            "legendFormat": "CPU (%)"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Requêtes de chat",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(chat_requests_total[5m])",
+            "legendFormat": "{{user_type}} - {{response_status}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+      },
+      {
+        "id": 7,
+        "title": "Temps de réponse du chatbot",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(chat_response_time_seconds_sum[5m]) / rate(chat_response_time_seconds_count[5m])",
+            "legendFormat": "{{user_type}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+      },
+      {
+        "id": 8,
+        "title": "Appels au modèle IA",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(ai_model_calls_total[5m])",
+            "legendFormat": "{{model_type}} - {{status}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20}
+      },
+      {
+        "id": 9,
+        "title": "Codes de statut HTTP",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total[5m])) by (status)",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "10s"
+  }
+}

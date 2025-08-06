@@ -8,11 +8,13 @@ import json
 import os
 from pathlib import Path
 import logging
+import time
 from models import User, ClientUser, Conversation
 from auth import authenticate_user, create_access_token, get_current_active_user, get_client_user, is_client_only, is_staff_or_admin, get_password_hash
 from langchain_utils import initialize_faiss, load_all_jsons, get_conversation_history, save_uploaded_file
 from utils import get_openai_api_key, MISSING_OPENAI_KEY_MSG
 from schemas import ChatMessage, ChatResponse, ConversationClose, ClientNameUpdate
+from monitoring import record_chat_request, record_chat_response_time, record_ai_model_call
 
 # Import de la fonction get_db depuis database
 from database import get_db
@@ -436,6 +438,9 @@ class APIRoutes(BaseRoutes):
         db: Session = Depends(get_db)
     ):
         """API endpoint pour envoyer un message"""
+        start_time = time.time()
+        user_type = "client" if is_client_only(current_user) else "staff"
+        
         try:
             # Récupérer les données du formulaire
             form_data = await request.form()
@@ -452,12 +457,14 @@ class APIRoutes(BaseRoutes):
                     images.append(value)
             
             if not chat_message.message:
+                record_chat_request(user_type, "error")
                 raise HTTPException(status_code=400, detail="Le message ne peut pas être vide")
             
             # Configuration OpenAI
             try:
                 openai_api_key = get_openai_api_key()
             except EnvironmentError:
+                record_chat_request(user_type, "error")
                 raise HTTPException(status_code=401, detail=MISSING_OPENAI_KEY_MSG)
             
             # Récupérer les données contextuelles
@@ -512,9 +519,11 @@ class APIRoutes(BaseRoutes):
                 faiss_results = vectorstore.similarity_search(user_input, k=5)  # Récupérer 5 résultats
                 faiss_context = "\n".join([doc.page_content for doc in faiss_results])
                 self.logger.info("Résultats FAISS trouvés: %d", len(faiss_results))
+                record_ai_model_call("faiss", "success")
             except Exception as e:
                 self.logger.error("Erreur recherche FAISS: %s", e)
                 faiss_context = "Informations générales PROFERM: spécialiste des portes d'entrée, vitrages et stores."
+                record_ai_model_call("faiss", "error")
             
             # Convertir l'historique de conversation en texte (comme Django)
             history_text = get_conversation_history(conversation_history)
@@ -523,14 +532,24 @@ class APIRoutes(BaseRoutes):
             complete_context = history_text + "\nContext from FAISS:\n" + faiss_context
             
             # Obtenir la réponse du modèle (EXACTEMENT comme Django)
-            response = llm.invoke(complete_context + "\nUser: " + user_input)
-            assistant_response = response.content if hasattr(response, 'content') else "Aucune réponse trouvée."
+            try:
+                response = llm.invoke(complete_context + "\nUser: " + user_input)
+                assistant_response = response.content if hasattr(response, 'content') else "Aucune réponse trouvée."
+                record_ai_model_call("gpt-4o-mini", "success")
+            except Exception as e:
+                self.logger.error("Erreur appel LLM: %s", e)
+                assistant_response = "Désolé, je rencontre des difficultés techniques. Veuillez réessayer."
+                record_ai_model_call("gpt-4o-mini", "error")
             
             # Ajouter la réponse
             conversation.add_message("assistant", assistant_response)
             
             # Sauvegarder
             db.commit()
+            
+            # Enregistrer les métriques de succès
+            record_chat_request(user_type, "success")
+            record_chat_response_time(user_type, time.time() - start_time)
             
             return {
                 "success": True,
@@ -540,8 +559,10 @@ class APIRoutes(BaseRoutes):
             }
             
         except HTTPException:
+            record_chat_request(user_type, "error")
             raise
         except Exception as e:
+            record_chat_request(user_type, "error")
             raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
     
     async def close_conversation(
