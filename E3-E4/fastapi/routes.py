@@ -439,7 +439,7 @@ class APIRoutes(BaseRoutes):
     ):
         """API endpoint pour envoyer un message"""
         start_time = time.time()
-        user_type = "client" if is_client_only(current_user) else "staff"
+        user_type = "client" if is_client_only(current_user, db) else "staff"
         
         try:
             # Récupérer les données du formulaire

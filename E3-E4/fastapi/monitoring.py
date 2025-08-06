@@ -72,37 +72,53 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         start_time = time.time()
         
         # Incrémenter le compteur de requêtes actives
-        ACTIVE_REQUESTS.inc()
+        try:
+            ACTIVE_REQUESTS.inc()
+        except Exception:
+            # Ignorer les erreurs de métriques pour éviter de casser l'application
+            pass
         
         try:
             response = await call_next(request)
             
             # Enregistrer les métriques
             duration = time.time() - start_time
-            REQUEST_COUNT.labels(
-                method=request.method,
-                endpoint=request.url.path,
-                status=response.status_code
-            ).inc()
-            
-            REQUEST_DURATION.labels(
-                method=request.method,
-                endpoint=request.url.path
-            ).observe(duration)
+            try:
+                REQUEST_COUNT.labels(
+                    method=request.method,
+                    endpoint=request.url.path,
+                    status=response.status_code
+                ).inc()
+                
+                REQUEST_DURATION.labels(
+                    method=request.method,
+                    endpoint=request.url.path
+                ).observe(duration)
+            except Exception:
+                # Ignorer les erreurs de métriques pour éviter de casser l'application
+                pass
             
             return response
             
         except Exception as e:
             # Enregistrer les erreurs
-            REQUEST_COUNT.labels(
-                method=request.method,
-                endpoint=request.url.path,
-                status=500
-            ).inc()
+            try:
+                REQUEST_COUNT.labels(
+                    method=request.method,
+                    endpoint=request.url.path,
+                    status=500
+                ).inc()
+            except Exception:
+                # Ignorer les erreurs de métriques pour éviter de casser l'application
+                pass
             raise e
         finally:
             # Décrémenter le compteur de requêtes actives
-            ACTIVE_REQUESTS.dec()
+            try:
+                ACTIVE_REQUESTS.dec()
+            except Exception:
+                # Ignorer les erreurs de métriques pour éviter de casser l'application
+                pass
 
 def update_system_metrics():
     """

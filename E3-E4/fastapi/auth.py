@@ -90,7 +90,7 @@ def get_client_user(db: Session, user: User):
     """Récupérer le profil client d'un utilisateur"""
     return db.query(ClientUser).filter(ClientUser.user_id == user.id).first()
 
-def is_client_only(user: User, db: Session = Depends(get_db)):
+def is_client_only(user: User, db: Session):
     """Vérifier si l'utilisateur est uniquement un client"""
     client_user = get_client_user(db, user)
     return client_user and client_user.is_client_only
