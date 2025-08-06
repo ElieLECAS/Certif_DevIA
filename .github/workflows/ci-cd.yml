@@ -61,3 +61,21 @@ jobs:
                   name: coverage-reports
                   path: E3-E4/fastapi/htmlcov/
                   retention-days: 30
+                  
+            - name: Log in to Docker Hub
+              if: ${{ github.event_name == 'push' }}
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            - name: Build and push Docker image
+              if: ${{ github.event_name == 'push' }}
+              uses: docker/build-push-action@v5
+              with:
+                  context: E3-E4/fastapi
+                  file: E3-E4/fastapi/Dockerfile
+                  push: true
+                  tags: |
+                      ${{ secrets.DOCKERHUB_USERNAME }}/fastapi:latest
+                      ${{ secrets.DOCKERHUB_USERNAME }}/fastapi:${{ github.run_number }}
