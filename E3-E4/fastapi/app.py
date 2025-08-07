@@ -99,6 +99,55 @@ http_requests_in_flight = Gauge(
     ['method', 'endpoint']
 )
 
+# Métriques personnalisées pour OpenAI et FAISS
+openai_requests_total = Counter(
+    'openai_requests_total',
+    'Total des requêtes OpenAI',
+    ['model', 'endpoint', 'status']
+)
+
+openai_request_duration_seconds = Histogram(
+    'openai_request_duration_seconds',
+    'Durée des requêtes OpenAI',
+    ['model', 'endpoint']
+)
+
+openai_response_tokens = Counter(
+    'openai_response_tokens',
+    'Nombre total de tokens dans les réponses OpenAI',
+    ['model', 'endpoint']
+)
+
+openai_request_tokens = Counter(
+    'openai_request_tokens',
+    'Nombre total de tokens dans les requêtes OpenAI',
+    ['model', 'endpoint']
+)
+
+faiss_search_duration_seconds = Histogram(
+    'faiss_search_duration_seconds',
+    'Durée des recherches FAISS',
+    ['operation']
+)
+
+faiss_search_results_count = Counter(
+    'faiss_search_results_count',
+    'Nombre de résultats de recherche FAISS',
+    ['operation']
+)
+
+chatbot_conversations_total = Counter(
+    'chatbot_conversations_total',
+    'Total des conversations du chatbot',
+    ['status']
+)
+
+chatbot_messages_total = Counter(
+    'chatbot_messages_total',
+    'Total des messages du chatbot',
+    ['type']
+)
+
 # Métriques d'erreurs détaillées
 http_errors_total = Counter(
     'http_errors_total',

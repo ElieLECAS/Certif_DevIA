@@ -13,6 +13,7 @@ import fitz  # PyMuPDF
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
+from monitoring_utils import monitor_faiss_search, FAISSMonitor
 
 
 logger = logging.getLogger(__name__)
@@ -224,6 +225,7 @@ def load_all_jsons(user=None, db=None) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
         )
 
 # Initialiser ou charger l'index FAISS
+@monitor_faiss_search(operation="initialize")
 def initialize_faiss(openai_api_key: str, *, chunk_size: int = 1500, chunk_overlap: int = 200):
     """
     Initialiser FAISS avec des documents PDF pour le SAV
