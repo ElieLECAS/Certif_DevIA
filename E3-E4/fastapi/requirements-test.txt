@@ -1,0 +1,36 @@
+# Dépendances pour les tests
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-html>=3.1.0
+pytest-xdist>=3.0.0
+pytest-timeout>=2.1.0
+pytest-mock>=3.10.0
+pytest-asyncio>=0.21.0
+
+# Outils de qualité de code
+flake8>=6.0.0
+mypy>=1.0.0
+black>=23.0.0
+isort>=5.12.0
+
+# Outils de sécurité
+bandit>=1.7.0
+safety>=2.3.0
+
+# Outils de performance
+locust>=2.15.0
+
+# Outils de monitoring
+prometheus-client>=0.17.0
+
+# Outils de base de données pour les tests
+sqlite3
+alembic>=1.10.0
+
+# Outils de reporting
+coverage>=7.2.0
+html-testRunner>=1.2.0
+
+# Outils de développement
+ipython>=8.0.0
+jupyter>=1.0.0
