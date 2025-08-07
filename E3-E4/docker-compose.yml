@@ -42,8 +42,59 @@ services:
         networks:
             - chatbot_network
 
+    prometheus:
+        image: prom/prometheus:latest
+        container_name: chatbot_sav_prometheus
+        ports:
+            - "9090:9090"
+        volumes:
+            - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+            - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml
+            - prometheus_data:/prometheus
+        command:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+            - "--web.console.libraries=/etc/prometheus/console_libraries"
+            - "--web.console.templates=/etc/prometheus/consoles"
+            - "--storage.tsdb.retention.time=200h"
+            - "--web.enable-lifecycle"
+        networks:
+            - chatbot_network
+
+    postgres-exporter:
+        image: prometheuscommunity/postgres-exporter:latest
+        container_name: chatbot_sav_postgres_exporter
+        environment:
+            - DATA_SOURCE_NAME=postgresql://postgres:password@db:5432/chatbot_sav?sslmode=disable
+        ports:
+            - "9187:9187"
+        depends_on:
+            db:
+                condition: service_healthy
+        networks:
+            - chatbot_network
+
+    grafana:
+        image: grafana/grafana:latest
+        container_name: chatbot_sav_grafana
+        ports:
+            - "3000:3000"
+        environment:
+            - GF_SECURITY_ADMIN_USER=admin
+            - GF_SECURITY_ADMIN_PASSWORD=admin
+            - GF_USERS_ALLOW_SIGN_UP=false
+        volumes:
+            - grafana_data:/var/lib/grafana
+            - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+            - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+            - ./monitoring/grafana/dashboards:/etc/grafana/dashboards
+        networks:
+            - chatbot_network
+
 volumes:
     chatbot_postgres_data:
+    prometheus_data:
+    grafana_data:
 
 networks:
     chatbot_network:

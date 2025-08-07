@@ -6,8 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.exc import OperationalError
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
 import uvicorn
 import os
+import time
 
 # Fonction de lifespan pour remplacer @app.on_event
 def create_default_admin(db):
@@ -76,6 +79,92 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Métriques Prometheus
+http_requests_total = Counter(
+    'http_requests_total',
+    'Total des requêtes HTTP',
+    ['method', 'endpoint', 'status']
+)
+
+http_request_duration_seconds = Histogram(
+    'http_request_duration_seconds',
+    'Durée des requêtes HTTP',
+    ['method', 'endpoint']
+)
+
+http_requests_in_flight = Gauge(
+    'http_requests_in_flight',
+    'Requêtes HTTP en cours',
+    ['method', 'endpoint']
+)
+
+# Métriques d'erreurs détaillées
+http_errors_total = Counter(
+    'http_errors_total',
+    'Total des erreurs HTTP',
+    ['method', 'endpoint', 'status', 'error_type']
+)
+
+# Middleware pour collecter les métriques
+@app.middleware("http")
+async def collect_metrics(request, call_next):
+    start_time = time.time()
+    
+    # Incrémenter les requêtes en cours
+    http_requests_in_flight.labels(
+        method=request.method,
+        endpoint=request.url.path
+    ).inc()
+    
+    try:
+        response = await call_next(request)
+        duration = time.time() - start_time
+        
+        # Enregistrer les métriques
+        http_requests_total.labels(
+            method=request.method,
+            endpoint=request.url.path,
+            status=response.status_code
+        ).inc()
+        
+        http_request_duration_seconds.labels(
+            method=request.method,
+            endpoint=request.url.path
+        ).observe(duration)
+        
+        # Enregistrer les erreurs
+        if response.status_code >= 400:
+            error_type = "client_error" if response.status_code < 500 else "server_error"
+            http_errors_total.labels(
+                method=request.method,
+                endpoint=request.url.path,
+                status=response.status_code,
+                error_type=error_type
+            ).inc()
+        
+        return response
+        
+    except Exception as e:
+        # Enregistrer les exceptions
+        http_errors_total.labels(
+            method=request.method,
+            endpoint=request.url.path,
+            status=500,
+            error_type="exception"
+        ).inc()
+        raise
+    finally:
+        # Décrémenter les requêtes en cours
+        http_requests_in_flight.labels(
+            method=request.method,
+            endpoint=request.url.path
+        ).dec()
+
+# Endpoint pour les métriques Prometheus
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 # Static files et templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
