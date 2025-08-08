@@ -487,7 +487,7 @@ class APIRoutes(BaseRoutes):
             
             # Initialiser LLM et FAISS
             from langchain_openai import ChatOpenAI
-            llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.4)
+            llm = ChatOpenAI(api_key=openai_api_key, model=os.getenv("OPENAI_MODEL"), max_completion_tokens=500, temperature=0.4)
             vectorstore = get_vectorstore(openai_api_key)
             
             # Ajouter le message utilisateur (comme Django)
