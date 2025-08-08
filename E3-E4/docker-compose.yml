@@ -83,11 +83,13 @@ services:
             - GF_SECURITY_ADMIN_USER=admin
             - GF_SECURITY_ADMIN_PASSWORD=admin
             - GF_USERS_ALLOW_SIGN_UP=false
+            - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
         volumes:
             - grafana_data:/var/lib/grafana
             - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
             - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
             - ./monitoring/grafana/dashboards:/etc/grafana/dashboards
+            - ./monitoring/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting
         networks:
             - chatbot_network
 
