@@ -13,6 +13,7 @@ from auth import authenticate_user, create_access_token, get_current_active_user
 from langchain_utils import initialize_faiss, load_all_jsons, get_conversation_history, save_uploaded_file
 from utils import get_openai_api_key, MISSING_OPENAI_KEY_MSG
 from schemas import ChatMessage, ChatResponse, ConversationClose, ClientNameUpdate
+from monitoring_utils import monitor_openai_call, track_conversation_status, track_message_type, OpenAIMonitor, FAISSMonitor
 
 # Import de la fonction get_db depuis database
 from database import get_db
@@ -62,6 +63,7 @@ def get_or_create_conversation(
         db.add(conversation)
         db.commit()
         db.refresh(conversation)
+        track_conversation_status("nouveau")
 
         client_user = db.query(ClientUser).filter(ClientUser.user_id == user.id).first()
         if client_user:
@@ -490,6 +492,7 @@ class APIRoutes(BaseRoutes):
             
             # Ajouter le message utilisateur (comme Django)
             conversation.add_message("user", user_input)
+            track_message_type("user")
             
             # Récupérer l'historique complet
             conversation_history = conversation.history
@@ -507,11 +510,12 @@ class APIRoutes(BaseRoutes):
                 db.commit()  # Sauvegarder
                 conversation_history = conversation.history
             
-            # Recherche FAISS améliorée
+            # Recherche FAISS améliorée avec monitoring
             try:
-                faiss_results = vectorstore.similarity_search(user_input, k=5)  # Récupérer 5 résultats
-                faiss_context = "\n".join([doc.page_content for doc in faiss_results])
-                self.logger.info("Résultats FAISS trouvés: %d", len(faiss_results))
+                with FAISSMonitor(operation="similarity_search"):
+                    faiss_results = vectorstore.similarity_search(user_input, k=5)  # Récupérer 5 résultats
+                    faiss_context = "\n".join([doc.page_content for doc in faiss_results])
+                    self.logger.info("Résultats FAISS trouvés: %d", len(faiss_results))
             except Exception as e:
                 self.logger.error("Erreur recherche FAISS: %s", e)
                 faiss_context = "Informations générales PROFERM: spécialiste des portes d'entrée, vitrages et stores."
@@ -522,12 +526,14 @@ class APIRoutes(BaseRoutes):
             # Préparer le contexte complet (EXACTEMENT comme Django)
             complete_context = history_text + "\nContext from FAISS:\n" + faiss_context
             
-            # Obtenir la réponse du modèle (EXACTEMENT comme Django)
-            response = llm.invoke(complete_context + "\nUser: " + user_input)
-            assistant_response = response.content if hasattr(response, 'content') else "Aucune réponse trouvée."
+            # Obtenir la réponse du modèle avec monitoring OpenAI
+            with OpenAIMonitor(model="gpt-4o-mini"):
+                response = llm.invoke(complete_context + "\nUser: " + user_input)
+                assistant_response = response.content if hasattr(response, 'content') else "Aucune réponse trouvée."
             
             # Ajouter la réponse
             conversation.add_message("assistant", assistant_response)
+            track_message_type("assistant")
             
             # Sauvegarder
             db.commit()
@@ -918,6 +924,7 @@ class UtilityRoutes(BaseRoutes):
         """Enregistrer les routes utilitaires"""
         self.router.get("/", response_model=None)(self.root)
         self.router.get("/test-db", response_model=None)(self.test_database)
+        self.router.get("/monitoring-stats", response_model=None)(self.monitoring_stats)
     
     async def root(self):
         """Route racine - redirection vers login"""
@@ -949,6 +956,19 @@ class UtilityRoutes(BaseRoutes):
                 "message": f"Erreur de connexion: {str(e)}",
                 "type": type(e).__name__
             }
+    
+    async def monitoring_stats(self):
+        """Endpoint pour les statistiques de monitoring"""
+        try:
+            from monitoring_utils import get_monitoring_stats
+            stats = get_monitoring_stats()
+            return {
+                "status": "success",
+                "stats": stats,
+                "message": "Statistiques de monitoring récupérées"
+            }
+        except Exception as e:
+            return {"status": "error", "message": f"Erreur lors de la récupération des stats: {str(e)}"}
 
 
 # Instanciation des classes de routes

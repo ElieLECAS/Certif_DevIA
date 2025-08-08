@@ -56,3 +56,6 @@ alembic==1.12.1
 
 # CORS (pour les requêtes cross-origin)
 fastapi-cors==0.0.6
+
+# Monitoring et métriques
+prometheus-client==0.19.0
