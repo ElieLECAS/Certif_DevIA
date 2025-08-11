@@ -284,9 +284,27 @@ L'application utilise JWT pour l'authentification :
 -   **client_users** : Profils clients
 -   **conversations** : Conversations avec l'IA
 
-### Migrations
+### Migrations (Alembic)
 
-Les tables sont créées automatiquement au démarrage via SQLAlchemy.
+Alembic est intégré pour gérer les migrations de schéma. Le conteneur `web` applique automatiquement `alembic upgrade head` au démarrage.
+
+Commandes utiles:
+
+```bash
+# Créer une révision à partir des modèles
+docker compose exec web alembic revision --autogenerate -m "ma_modif"
+
+# Appliquer les migrations
+docker compose exec web alembic upgrade head
+
+# Revenir en arrière
+docker compose exec web alembic downgrade -1
+```
+
+Structure:
+
+-   `alembic.ini` et `alembic/` dans `fastapi/`
+-   Révisions dans `alembic/versions/`
 
 ## 🐳 Docker
 
@@ -382,5 +400,6 @@ Pour toute question ou problème :
 ---
 
 **Développé avec ❤️ pour améliorer l'expérience du service après-vente**
-#   T e s t   p r o t e c t i o n   d e   b r a n c h e  
+#   T e s t   p r o t e c t i o n   d e   b r a n c h e 
+ 
  
