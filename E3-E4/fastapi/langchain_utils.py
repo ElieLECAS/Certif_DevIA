@@ -136,7 +136,7 @@ def load_all_jsons(user=None, db=None) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
                         "statut": cmd.statut,
                         "montant_ht": cmd.montant_ht,
                         "montant_ttc": cmd.montant_ttc,
-                        "adresse_livraison": cmd.adresse_livraison,
+                        # "adresse_livraison": cmd.adresse_livraison,
                         "notes": cmd.notes
                     }
                     
@@ -152,16 +152,16 @@ def load_all_jsons(user=None, db=None) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
                 client_info = {
                     "client_informations": {
                         "id": user.id,
-                        "nom": user.nom or user.username.split('_')[-1] if '_' in user.username else user.username,
+                        # "nom": user.nom or user.username.split('_')[-1] if '_' in user.username else user.username,
                         "prenom": user.prenom or user.username.split('_')[0] if '_' in user.username else user.username,
-                        "adresse": user.adresse or "",
-                        "telephone": user.telephone or "",
-                        "email": user.email,
+                        # "adresse": user.adresse or "",
+                        # "telephone": user.telephone or "",
+                        # "email": user.email,
                         "date_creation": user.created_at.strftime("%Y-%m-%d") if hasattr(user, 'created_at') else datetime.now().strftime("%Y-%m-%d"),
                         "historique": {
                             "nb_commandes": len(user_commandes),
                             "derniere_commande": user_commandes[-1].date_commande.strftime("%Y-%m-%d") if user_commandes else "",
-                            "interventions_precedentes": []  # À compléter si vous ajoutez une table d'interventions
+                            "interventions_precedentes": []
                         }
                     }
                 }
@@ -174,40 +174,7 @@ def load_all_jsons(user=None, db=None) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
                 
             except Exception as e:
                 logger.error("Erreur lors de la récupération des données client depuis la BDD: %s", e)
-                # En cas d'erreur, créer des objets par défaut
-                client_info = {
-                    "client_informations": {
-                        "id": user.id,
-                        "nom": user.username,
-                        "prenom": user.username,
-                        "email": user.email,
-                        "date_creation": user.created_at.strftime("%Y-%m-%d") if hasattr(user, 'created_at') else datetime.now().strftime("%Y-%m-%d"),
-                        "historique": {
-                            "nb_commandes": 0,
-                            "derniere_commande": "",
-                            "interventions_precedentes": []
-                        }
-                    }
-                }
-                commandes = {"commandes": []}
-        else:
-            # Si aucun utilisateur n'est fourni, créer des objets par défaut
-            client_info = {
-                "client_informations": {
-                    "id": 0,
-                    "nom": "Client",
-                    "prenom": "Anonyme",
-                    "email": "",
-                    "date_creation": datetime.now().strftime("%Y-%m-%d"),
-                    "historique": {
-                        "nb_commandes": 0,
-                        "derniere_commande": "",
-                        "interventions_precedentes": []
-                    }
-                }
-            }
-            commandes = {"commandes": []}
-        
+                  
         renseignements = load_json(renseignements_path) if renseignements_path.exists() else {}
         retours = load_json(retours_path) if retours_path.exists() else {}
         
