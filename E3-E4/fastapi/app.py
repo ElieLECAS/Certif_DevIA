@@ -1,16 +1,20 @@
 """Application FastAPI principale du chatbot SAV."""
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.exception_handlers import http_exception_handler as fastapi_http_exception_handler
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.exc import OperationalError
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
-from fastapi.responses import Response
+from fastapi.responses import Response, RedirectResponse, JSONResponse
 import uvicorn
 import os
 import time
+import logging
+from urllib.parse import quote
 
 # Fonction de lifespan pour remplacer @app.on_event
 def create_default_admin(db):
@@ -61,6 +65,13 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# Lecture des variables d'environnement pour DEBUG/ENVIRONMENT
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
+DEBUG = os.getenv("DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"} or ENVIRONMENT in {"dev", "development"}
+
+# Config niveau de logs
+logging.basicConfig(level=logging.DEBUG if DEBUG else logging.INFO)
+
 # FastAPI app avec lifespan
 app = FastAPI(
     title="Chatbot SAV", 
@@ -69,12 +80,13 @@ app = FastAPI(
 )
 
 # Configuration CORS
-# Récupérer les origines autorisées depuis les variables d'environnement
+# En dev (DEBUG=True), autoriser toutes les origines; en prod, restreindre
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:8000").split(",")
+cors_allow_origins = ["*"] if DEBUG else ALLOWED_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=cors_allow_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -210,6 +222,54 @@ async def collect_metrics(request, call_next):
             endpoint=request.url.path
         ).dec()
 
+# Gestionnaire global pour rediriger les 401 vers /login pour les pages HTML
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    # Redirection uniquement pour les 401 côté pages HTML
+    if exc.status_code == 401:
+        accept_header = request.headers.get("accept", "")
+        is_api = request.url.path.startswith("/api")
+        expects_json = "application/json" in accept_header
+
+        # Pour l'API ou les requêtes JSON, conserver la réponse 401 JSON
+        if is_api or expects_json:
+            headers = getattr(exc, "headers", None) or {}
+            return JSONResponse({"detail": exc.detail}, status_code=401, headers=headers)
+
+        # Pour les pages, rediriger vers /login avec le paramètre next
+        next_path = request.url.path or "/"
+        query = request.url.query
+        if query:
+            next_path = f"{next_path}?{query}"
+        response = RedirectResponse(url=f"/login?next={quote(next_path)}", status_code=302)
+        # Supprimer un éventuel cookie expiré pour éviter des boucles
+        response.delete_cookie(key="access_token")
+        return response
+
+    # Pour les autres codes, utiliser le gestionnaire par défaut de FastAPI
+    return await fastapi_http_exception_handler(request, exc)
+
+# Gestion dédiée des 404 (pages HTML vs API)
+@app.exception_handler(StarletteHTTPException)
+async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    if exc.status_code == 404:
+        is_api = request.url.path.startswith("/api")
+
+        # Pour l'API, garder JSON; pour les pages, afficher un template HTML, 
+        # même si l'entête Accept inclut application/json (navigation navigateur)
+        if is_api:
+            return JSONResponse({"detail": exc.detail or "Not Found"}, status_code=404)
+
+        # Page HTML 404 simple
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "status_code": 404, "message": "Page non trouvée"},
+            status_code=404,
+        )
+
+    # Laisser le gestionnaire par défaut pour les autres codes
+    return await fastapi_http_exception_handler(request, exc)
+
 # Endpoint pour les métriques Prometheus
 @app.get("/metrics")
 async def metrics():
@@ -218,10 +278,12 @@ async def metrics():
 # Static files et templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+# En dev, activer l'auto-reload des templates
+templates.env.auto_reload = DEBUG
 
 # Importer et inclure les routes
 from routes import router
 app.include_router(router)
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True) 
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=DEBUG, log_level=("debug" if DEBUG else "info")) 

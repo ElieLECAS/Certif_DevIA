@@ -12,7 +12,11 @@ import os
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
+# Durée d'expiration configurée (minutes) avec valeur par défaut 30
+try:
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+except ValueError:
+    ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 security = HTTPBearer(auto_error=False)
 

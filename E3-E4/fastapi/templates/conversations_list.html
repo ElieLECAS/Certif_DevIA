@@ -1,50 +1,11 @@
-{% extends "base.html" %} {% block extra_css %}
-<style>
-    .conversation-row {
-        cursor: pointer;
-    }
-
-    .conversation-row:hover {
-        background-color: rgba(0, 123, 255, 0.1);
-    }
-
-    .status-badge {
-        display: inline-block;
-        padding: 0.25em 0.6em;
-        font-size: 75%;
-        font-weight: 700;
-        line-height: 1;
-        text-align: center;
-        white-space: nowrap;
-        vertical-align: baseline;
-        border-radius: 0.25rem;
-    }
-
-    .status-nouveau {
-        color: #fff;
-        background-color: #17a2b8;
-    }
-
-    .status-en_cours {
-        color: #fff;
-        background-color: #007bff;
-    }
-
-    .status-termine {
-        color: #fff;
-        background-color: #28a745;
-    }
-
-    .filters {
-        margin-bottom: 20px;
-    }
-</style>
-{% endblock %} {% block content %}
+{% extends "base.html" %} {% block content %}
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <article class="card">
+                <header
+                    class="card-header bg-primary text-white d-flex justify-content-between align-items-center"
+                >
                     <h4 class="mb-0">
                         Liste des conversations SAV ( {{ conversations|length }}
                         )
@@ -52,9 +13,9 @@
                     <a href="/dashboard" class="btn btn-light btn-sm">
                         <i class="fas fa-chart-line"></i> Dashboard
                     </a>
-                </div>
+                </header>
                 <div class="card-body">
-                    <div class="filters">
+                    <section class="filters" aria-label="Filtres de statut">
                         <a
                             href="/conversations"
                             class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline-primary{% endif %} mr-2"
@@ -75,19 +36,25 @@
                             class="btn btn-sm {% if status_filter == 'termine' %}btn-success{% else %}btn-outline-success{% endif %}"
                             >Terminées</a
                         >
-                    </div>
+                    </section>
 
                     {% if conversations %}
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
+                    <section
+                        class="table-responsive"
+                        aria-label="Tableau des conversations"
+                    >
+                        <table
+                            class="table table-bordered table-hover"
+                            role="table"
+                        >
                             <thead class="thead-light">
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Client</th>
-                                    <th>Statut</th>
-                                    <th>Créée le</th>
-                                    <th>Dernière mise à jour</th>
-                                    <th>Actions</th>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Client</th>
+                                    <th scope="col">Statut</th>
+                                    <th scope="col">Créée le</th>
+                                    <th scope="col">Dernière mise à jour</th>
+                                    <th scope="col">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -96,7 +63,7 @@
                                     class="conversation-row"
                                     data-id="{{ conversation.id }}"
                                 >
-                                    <td>{{ conversation.id }}</td>
+                                    <td scope="row">{{ conversation.id }}</td>
                                     <td>
                                         {{ conversation.client_name or "Anonyme"
                                         }}
@@ -136,9 +103,8 @@
                                     </td>
                                 </tr>
                                 <tr
-                                    class="details-row"
+                                    class="details-row hidden"
                                     id="details-{{ conversation.id }}"
-                                    style="display: none"
                                 >
                                     <td colspan="6">
                                         <div class="card mt-2">
@@ -157,7 +123,7 @@
                                 {% endfor %}
                             </tbody>
                         </table>
-                    </div>
+                    </section>
                     {% else %}
                     <div class="text-center py-4">
                         <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
@@ -169,25 +135,34 @@
                     </div>
                     {% endif %}
                 </div>
-            </div>
+            </article>
         </div>
     </div>
 </div>
 {% endblock %} {% block extra_js %}
 <script>
-    // Afficher/masquer les détails d'une conversation
-    document.querySelectorAll(".conversation-row").forEach((row) => {
-        row.addEventListener("click", function () {
-            const conversationId = this.dataset.id;
-            const detailsRow = document.getElementById(
-                `details-${conversationId}`
-            );
+    document.addEventListener("DOMContentLoaded", function () {
+        // Forcer l'état initial masqué des lignes de détails
+        document.querySelectorAll(".details-row").forEach((row) => {
+            row.style.display = "none";
+            row.classList.add("hidden");
+        });
 
-            if (detailsRow.style.display === "none") {
-                detailsRow.style.display = "table-row";
-            } else {
-                detailsRow.style.display = "none";
-            }
+        // Afficher/masquer les détails au clic sur la ligne (hors liens)
+        document.querySelectorAll(".conversation-row").forEach((row) => {
+            row.addEventListener("click", function (e) {
+                if (e.target.closest("a")) return; // ne pas interférer avec les liens d'action
+
+                const conversationId = this.dataset.id;
+                const detailsRow = document.getElementById(
+                    `details-${conversationId}`
+                );
+                if (!detailsRow) return;
+
+                const isHidden = detailsRow.style.display === "none";
+                detailsRow.style.display = isHidden ? "table-row" : "none";
+                detailsRow.classList.toggle("hidden", !isHidden);
+            });
         });
     });
 </script>
