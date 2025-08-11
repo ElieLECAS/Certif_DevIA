@@ -6,8 +6,10 @@ body {
     padding: 0;
 }
 
-/* Sidebar */
-.sidebar {
+/* Sidebar (utiliser balise aside de préférence) */
+aside,
+aside.sidebar,
+aside[role="complementary"] {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
     position: fixed;
@@ -19,7 +21,7 @@ body {
     transition: all 0.3s ease;
 }
 
-.sidebar h3 {
+aside h3 {
     color: white;
     font-weight: 600;
     margin: 0;
@@ -27,12 +29,16 @@ body {
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Conteneur de navigation */
+aside nav,
 .nav-links-container {
     padding: 20px 0;
     max-height: calc(100vh - 200px);
     overflow-y: auto;
 }
 
+/* Liens de navigation */
+aside nav a,
 .nav-links-container a {
     display: flex;
     align-items: center;
@@ -43,6 +49,7 @@ body {
     border-left: 3px solid transparent;
 }
 
+aside nav a:hover,
 .nav-links-container a:hover {
     background-color: rgba(255, 255, 255, 0.1);
     color: white;
@@ -50,18 +57,21 @@ body {
     text-decoration: none;
 }
 
+aside nav a.active,
 .nav-links-container a.active {
     background-color: rgba(255, 255, 255, 0.2);
     color: white;
     border-left-color: #fff;
 }
 
+aside nav a i,
 .nav-links-container a i {
     margin-right: 12px;
     width: 20px;
     text-align: center;
 }
 
+aside nav a span,
 .nav-links-container a span {
     font-weight: 500;
 }
@@ -110,7 +120,8 @@ body {
     color: #ff6b6b;
 }
 
-/* Contenu principal */
+/* Contenu principal (balise main) */
+main,
 .main-content {
     margin-left: 16.666667%; /* col-md-2 */
     min-height: 100vh;
@@ -119,6 +130,7 @@ body {
 }
 
 /* Bouton toggle sidebar mobile */
+#sidebarToggle,
 .sidebar-toggle {
     display: none;
     position: fixed;
@@ -383,18 +395,23 @@ body {
 
 /* Responsive */
 @media (max-width: 1300px) {
-    .sidebar {
+    aside,
+    aside.sidebar,
+    aside[role="complementary"] {
         transform: translateX(-100%);
     }
 
-    .sidebar.show {
+    aside.show,
+    aside.sidebar.show {
         transform: translateX(0);
     }
 
+    main,
     .main-content {
         margin-left: 0;
     }
 
+    #sidebarToggle,
     .sidebar-toggle {
         display: block;
     }

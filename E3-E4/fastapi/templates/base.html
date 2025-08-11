@@ -21,25 +21,18 @@
     </head>
     <body>
         <!-- Bouton toggle pour la sidebar mobile -->
-        <button class="sidebar-toggle" id="sidebarToggle">
+        <button id="sidebarToggle">
             <i class="fas fa-bars"></i>
         </button>
 
         <div class="container-fluid">
             <div class="row">
                 <!-- Sidebar -->
-                <aside
-                    class="col-md-2 sidebar"
-                    id="sidebar"
-                    role="complementary"
-                >
+                <aside class="col-md-2" id="sidebar" role="complementary">
                     <h3 class="text-white px-3 mb-4">Navigation</h3>
 
                     <!-- Zone de navigation avec défilement -->
-                    <nav
-                        class="nav-links-container"
-                        aria-label="Navigation principale"
-                    >
+                    <nav aria-label="Navigation principale">
                         {% if user %}
                         <!-- Liens pour utilisateurs authentifiés -->
                         {% if not user.is_staff and not user.is_superuser %}
@@ -108,7 +101,7 @@
                 </aside>
 
                 <!-- Main Content -->
-                <main class="col-md-10 main-content" role="main">
+                <main class="col-md-10" role="main">
                     <section class="container mt-4">
                         {% block content %}{% endblock %}
                     </section>
