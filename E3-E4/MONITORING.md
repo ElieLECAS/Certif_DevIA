@@ -55,6 +55,23 @@ Le dispositif est entièrement opérable en environnement local au moyen de Dock
 
 La journalisation applicative utilise le module standard `logging` et se limite à des événements techniques contextualisés (succès ou échec d’appel OpenAI, durées d’exécution FAISS, statut des conversations), sans journaliser de contenu conversationnel ou de données identifiantes. Les métriques exposées par `prometheus_client` sont agrégées et utilisent des labels non identifiants (méthode, endpoint, statut HTTP, modèle), ce qui satisfait au principe de minimisation des données. Les secrets et informations sensibles sont fournis par variables d’environnement, et l’accès à l’endpoint `/metrics` est conçu pour rester interne au réseau dans une perspective de déploiement en production. Ces choix assurent un niveau de conformité cohérent avec les exigences de protection des données dans un contexte d’IA appliquée.
 
+### Suivi et consultation des logs
+
+En développement, les logs de l’application et des services sont consultés directement dans Docker Desktop (onglet « Logs » de chaque conteneur) ou en ligne de commande, selon préférence.
+
+```bash
+docker compose logs -f web
+docker compose logs -f prometheus grafana
+```
+
+En production, les logs sont consultés via Portainer dans la vue « Logs » de chaque conteneur. La consultation en CLI reste possible si nécessaire.
+
+```bash
+docker logs -f <container_name>
+```
+
+Ce choix privilégie la simplicité: je connais des solutions de centralisation comme Grafana Loki avec Promtail (ou des stacks ELK/EFK), très utiles pour la recherche plein‑texte, la corrélation et la rétention avancée, mais elles seraient surdimensionnées pour cette application. Elles ajoutent des composants à exploiter (agents, stockage, politiques de rétention) sans bénéfice immédiat. Les métriques et alertes couvrent les signaux forts; l’inspection des logs conteneurisés via Docker Desktop et Portainer suffit aujourd’hui. Si la volumétrie, les exigences d’audit ou les SLO évoluent, une centralisation pourra être introduite ultérieurement sans modification du code applicatif.
+
 ### Procédures de test des alertes
 
 La validité des règles d’alerte est vérifiée par des scénarios d’inductions contrôlées. L’indisponibilité du service est testée en arrêtant temporairement le conteneur `web`, ce qui entraîne, après une minute, l’émission d’une alerte critique « ServiceDown ». Le taux d’erreurs est éprouvé en forçant des réponses 5xx sur un endpoint de test pendant plus de deux minutes, permettant d’observer le déclenchement de l’alerte « HighErrorRate ». La surveillance de la latence est évaluée en introduisant, côté application, une temporisation volontaire portant la durée de traitement au‑delà de deux secondes, puis en soumettant la route concernée à une charge continue pendant environ cinq minutes; l’alerte « HighResponseTime » doit alors apparaître. Dans chaque cas, la réception des notifications sur Discord et l’évolution de l’état dans Grafana (ouverture, acquittement, résolution) sont contrôlées.
