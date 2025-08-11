@@ -121,7 +121,7 @@ class AuthRoutes(BaseRoutes):
         
         # Durée d'expiration configurable via variable d'environnement
         try:
-            expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+            expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
         except ValueError:
             expire_minutes = 30
         access_token_expires = timedelta(minutes=expire_minutes)
