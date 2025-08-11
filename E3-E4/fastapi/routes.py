@@ -599,7 +599,7 @@ class APIRoutes(BaseRoutes):
                 openai_api_key = None
             if openai_api_key:
                 from langchain_openai import ChatOpenAI
-                llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.3)
+                llm = ChatOpenAI(api_key=openai_api_key, model=os.getenv("OPENAI_MODEL"), max_tokens=500, temperature=0.3)
                 
                 conversation_text = get_conversation_history(conversation.history)
                 summary_prompt = f"\n{conversation_text}\n\nGénère un résumé de l'entière de la conversation avec le client pour le transmettre à un technicien SAV humain, donne lui les points importants pour lui permettre de gagner du temps sur la relecture de la conversation SAV."
@@ -673,7 +673,7 @@ class APIRoutes(BaseRoutes):
             
             # Initialiser LLM et FAISS
             from langchain_openai import ChatOpenAI
-            llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.4)
+            llm = ChatOpenAI(api_key=openai_api_key, model=os.getenv("OPENAI_MODEL"), max_tokens=500, temperature=0.4)
             vectorstore = get_vectorstore(openai_api_key)
             
             # Générer une réponse pour les images
