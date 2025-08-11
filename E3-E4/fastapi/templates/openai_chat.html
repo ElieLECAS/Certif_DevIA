@@ -1,171 +1,5 @@
-{% extends "base.html" %} {% block extra_css %}
-<!-- Ajout de la bibliothèque Marked pour le rendu markdown -->
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<style>
-    .chat-layout {
-        height: calc(100vh - 120px);
-    }
-
-    .chat-container {
-        max-width: 70%;
-        flex: 1;
-    }
-
-    @media screen and (max-width: 968px) {
-        .chat-container {
-            max-width: 100%;
-        }
-    }
-
-    .image-preview {
-        margin-top: 1rem;
-    }
-
-    .image-preview img {
-        max-width: 100%;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    }
-
-    .close-conversation-btn {
-        padding: 10px 20px;
-        background: #28a745;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        margin-top: 1rem;
-        display: block;
-        width: 100%;
-        max-width: 300px;
-        margin: 1rem auto;
-    }
-
-    .input-wrapper {
-        display: flex;
-        align-items: center;
-        position: relative;
-    }
-
-    .file-upload-btn {
-        background: none;
-        border: none;
-        color: #6c757d;
-        font-size: 1.2rem;
-        cursor: pointer;
-        transition: color 0.2s;
-        position: absolute;
-        right: 60px;
-    }
-
-    .file-upload-btn:hover {
-        color: #0056b3;
-    }
-
-    /* Style pour cacher l'input file natif */
-    .hidden-file-input {
-        display: none;
-    }
-
-    /* Style pour l'aperçu d'image dans le chat */
-    .chat-image-preview {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 10px;
-    }
-
-    .chat-image-preview img {
-        max-width: 100px;
-        max-height: 100px;
-        object-fit: cover;
-        border-radius: 5px;
-    }
-
-    .chat-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0 1rem;
-    }
-
-    .chat-header-info {
-        display: flex;
-        align-items: center;
-        padding: 0 1rem;
-        margin-top: 2rem;
-    }
-
-    .chat-header-info h4 {
-        margin-left: 1rem;
-        margin-bottom: 0;
-    }
-
-    /* Styles pour le rendu markdown */
-    .message.assistant {
-        line-height: 1.6;
-    }
-
-    .message.assistant p {
-        margin-bottom: 0.5rem;
-    }
-
-    .message.assistant p:last-child {
-        margin-bottom: 0;
-    }
-
-    .message.assistant strong {
-        font-weight: 600;
-        color: #2c3e50;
-    }
-
-    .message.assistant em {
-        font-style: italic;
-        color: #7f8c8d;
-    }
-
-    .message.assistant ul,
-    .message.assistant ol {
-        margin: 0.5rem 0;
-        padding-left: 1.5rem;
-    }
-
-    .message.assistant li {
-        margin-bottom: 0.25rem;
-    }
-
-    .message.assistant code {
-        background-color: #f8f9fa;
-        padding: 0.2rem 0.4rem;
-        border-radius: 3px;
-        font-family: "Courier New", monospace;
-        font-size: 0.9em;
-    }
-
-    .message.assistant pre {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 5px;
-        overflow-x: auto;
-        margin: 0.5rem 0;
-    }
-
-    .message.assistant pre code {
-        background-color: transparent;
-        padding: 0;
-    }
-
-    .message.assistant blockquote {
-        border-left: 4px solid #007bff;
-        padding-left: 1rem;
-        margin: 0.5rem 0;
-        color: #6c757d;
-        font-style: italic;
-    }
-</style>
-{% endblock %} {% block content %}
-<div
+{% extends "base.html" %} {% block content %}
+<section
     class="chat-layout"
     {%
     if
@@ -177,7 +11,7 @@
     data-conversation-status="{% if current_conversation %}{{ current_conversation.status }}{% else %}nouveau{% endif %}"
 >
     <div class="chat-container">
-        <div class="chat-header">
+        <header class="chat-header">
             <div class="chat-header-info">
                 <h2>Assistant SAV PROFERM</h2>
             </div>
@@ -186,7 +20,7 @@
                     <i class="fas fa-redo"></i> Réinitialiser la conversation
                 </button>
             </div>
-        </div>
+        </header>
         <div class="chat-messages" id="chat-messages">
             <div class="welcome-message">
                 <p>
@@ -208,14 +42,7 @@
                 data-role="{{ message.role }}"
             >
                 {% if message.image_path %}
-                <img
-                    src="{{ message.image_path }}"
-                    style="
-                        max-width: 300px;
-                        margin-bottom: 10px;
-                        border-radius: 5px;
-                    "
-                />
+                <img src="{{ message.image_path }}" />
                 <br />
                 {% endif %}
                 <span class="message-text">{{ message.content }}</span>
@@ -223,7 +50,7 @@
             {% endif %} {% endfor %} {% endif %}
         </div>
 
-        <div class="chat-input-container">
+        <footer class="chat-input-container">
             <form id="chat-form" class="chat-form">
                 <div class="input-wrapper">
                     <textarea
@@ -257,10 +84,12 @@
             <button id="close-conversation" class="close-conversation-btn">
                 <i class="fas fa-check-circle"></i> Clôturer la conversation
             </button>
-        </div>
+        </footer>
     </div>
-</div>
+</section>
 {% endblock %} {% block extra_js %}
+<!-- Ajout de la bibliothèque Marked pour le rendu markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
     const chatForm = document.getElementById("chat-form");
     const chatInput = document.getElementById("user-input");
@@ -347,14 +176,21 @@
 
                 if (data.success) {
                     addMessage(data.response, "assistant");
-                    
+
                     // Mettre à jour l'ID de conversation si nécessaire (comme Django)
-                    if (data.conversation_id && (!currentConversationId || currentConversationId !== data.conversation_id)) {
+                    if (
+                        data.conversation_id &&
+                        (!currentConversationId ||
+                            currentConversationId !== data.conversation_id)
+                    ) {
                         currentConversationId = data.conversation_id;
-                        
+
                         // Mettre à jour l'URL sans recharger la page (comme Django)
                         const newUrl = new URL(window.location);
-                        newUrl.searchParams.set("conversation_id", currentConversationId);
+                        newUrl.searchParams.set(
+                            "conversation_id",
+                            currentConversationId
+                        );
                         window.history.pushState({}, "", newUrl);
                     }
                 } else {
@@ -392,10 +228,6 @@
             reader.onload = function (e) {
                 const img = document.createElement("img");
                 img.src = e.target.result;
-                img.style.maxWidth = "100px";
-                img.style.maxHeight = "100px";
-                img.style.objectFit = "cover";
-                img.style.borderRadius = "5px";
                 chatImagePreview.appendChild(img);
 
                 // Ajouter un message dans le chat

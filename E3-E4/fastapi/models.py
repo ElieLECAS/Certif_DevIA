@@ -17,6 +17,8 @@ class User(Base):
     is_staff = Column(Boolean, default=False)
     is_superuser = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # Nouveau champ pour démontrer les migrations Alembic
+    last_login = Column(DateTime, nullable=True)
     
     # Informations client (pour les utilisateurs non-admin)
     nom = Column(String, nullable=True)

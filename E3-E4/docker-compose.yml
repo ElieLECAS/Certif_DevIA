@@ -32,6 +32,7 @@ services:
             - DATABASE_URL=postgresql://postgres:password@db:5432/chatbot_sav
             - SECRET_KEY=your-super-secret-key-change-in-production
             - OPENAI_API_KEY=${OPENAI_API_KEY}
+            - OPENAI_MODEL=${OPENAI_MODEL}
             - ADMIN_USERNAME=${ADMIN_USERNAME}
             - ADMIN_EMAIL=${ADMIN_EMAIL}
             - ADMIN_PASSWORD=${ADMIN_PASSWORD}

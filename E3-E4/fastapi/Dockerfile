@@ -24,5 +24,6 @@ RUN mkdir -p uploads static templates
 # Exposer le port
 EXPOSE 8000
 
-# Commande par défaut
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"] 
+# Commande par défaut: appliquer les migrations puis démarrer l'app
+CMD ["/bin/sh", "-c", "alembic upgrade head && uvicorn app:app --host 0.0.0.0 --port 8000"]
+# CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -22,6 +22,9 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 logger = logging.getLogger(__name__)
 
+# Lecture DEBUG/ENVIRONMENT pour sécuriser les cookies en production
+DEBUG = os.getenv("DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"}
+
 # Variable globale pour stocker l'index FAISS
 _vectorstore = None
 
@@ -116,24 +119,43 @@ class AuthRoutes(BaseRoutes):
                 {"request": request, "error": "Identifiants invalides."}
             )
         
-        access_token_expires = timedelta(minutes=30)
+        # Durée d'expiration configurable via variable d'environnement
+        try:
+            expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+        except ValueError:
+            expire_minutes = 30
+        access_token_expires = timedelta(minutes=expire_minutes)
         access_token = create_access_token(
             data={"sub": user.username}, expires_delta=access_token_expires
         )
         
-        # Vérifier si l'utilisateur est un client
-        client_user = get_client_user(db, user)
-        if client_user and client_user.is_client_only:
-            response = RedirectResponse(url="/client_home", status_code=302)
+        # Si un paramètre next est fourni et sûr, on le privilégie
+        next_url = request.query_params.get("next")
+        is_safe_next = (
+            isinstance(next_url, str)
+            and next_url.startswith("/")
+            and "://" not in next_url
+            and not next_url.startswith("/api")
+        )
+
+        if is_safe_next:
+            response = RedirectResponse(url=next_url, status_code=302)
         else:
-            response = RedirectResponse(url="/dashboard", status_code=302)
+            # Vérifier si l'utilisateur est un client
+            client_user = get_client_user(db, user)
+            if client_user and client_user.is_client_only:
+                response = RedirectResponse(url="/client_home", status_code=302)
+            else:
+                response = RedirectResponse(url="/dashboard", status_code=302)
         
         response.set_cookie(
             key="access_token",
             value=access_token,
             httponly=True,
-            max_age=1800,  # 30 minutes
-            expires=1800
+            max_age=expire_minutes * 60,
+            expires=expire_minutes * 60,
+            secure=(not DEBUG),
+            samesite=("lax" if not DEBUG else "lax")
         )
         return response
     
@@ -487,7 +509,7 @@ class APIRoutes(BaseRoutes):
             
             # Initialiser LLM et FAISS
             from langchain_openai import ChatOpenAI
-            llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.4)
+            llm = ChatOpenAI(api_key=openai_api_key, model=os.getenv("OPENAI_MODEL"), max_tokens=500, temperature=0.4)
             vectorstore = get_vectorstore(openai_api_key)
             
             # Ajouter le message utilisateur (comme Django)
@@ -599,7 +621,7 @@ class APIRoutes(BaseRoutes):
                 openai_api_key = None
             if openai_api_key:
                 from langchain_openai import ChatOpenAI
-                llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.3)
+                llm = ChatOpenAI(api_key=openai_api_key, model=os.getenv("OPENAI_MODEL"), max_tokens=500, temperature=0.3)
                 
                 conversation_text = get_conversation_history(conversation.history)
                 summary_prompt = f"\n{conversation_text}\n\nGénère un résumé de l'entière de la conversation avec le client pour le transmettre à un technicien SAV humain, donne lui les points importants pour lui permettre de gagner du temps sur la relecture de la conversation SAV."
@@ -673,7 +695,7 @@ class APIRoutes(BaseRoutes):
             
             # Initialiser LLM et FAISS
             from langchain_openai import ChatOpenAI
-            llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4o-mini", max_tokens=500, temperature=0.4)
+            llm = ChatOpenAI(api_key=openai_api_key, model=os.getenv("OPENAI_MODEL"), max_tokens=500, temperature=0.4)
             vectorstore = get_vectorstore(openai_api_key)
             
             # Générer une réponse pour les images

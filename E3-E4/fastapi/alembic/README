@@ -1,0 +1,3 @@
+Répertoire Alembic pour les migrations de schéma.
+Les versions sont stockées dans `versions/`.
+
