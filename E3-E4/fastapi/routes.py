@@ -119,10 +119,10 @@ class AuthRoutes(BaseRoutes):
                 {"request": request, "error": "Identifiants invalides."}
             )
         
-        # Durée d'expiration configurable via variable d'environnement
+        # Durée d'expiration configurable via variable d'environnement (fallback sûr)
         try:
             expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
-        except ValueError:
+        except (TypeError, ValueError):
             expire_minutes = 30
         access_token_expires = timedelta(minutes=expire_minutes)
         access_token = create_access_token(

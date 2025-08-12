@@ -1,3 +1,111 @@
+## C11 — Monitorer un modèle d’intelligence artificielle
+
+Cette section répond aux attendus de la compétence C11 et se concentre sur le monitorage « IA » au sein du projet `E3-E4`, avec un focus sur:
+
+-   les appels au modèle OpenAI (débit, latence, erreurs, tokens/coûts);
+-   les recherches FAISS (débit, latence, taille/résultats);
+-   la collecte, l’alerte et la restitution via Prometheus/Grafana en temps réel;
+-   l’appui sur les métriques officielles du dashboard OpenAI comme source de vérité de coût/consommation.
+
+### 1) Métriques monitorées et interprétation
+
+Les métriques ci‑dessous sont exposées par l’API au format Prometheus (endpoint `/metrics`) et consommées par Grafana. Elles sont choisies pour éviter toute ambiguïté d’interprétation.
+
+-   OpenAI — volume de requêtes: `openai_requests_total{model,endpoint,status}`
+    -   Interprétation: dérivée temporelle via `rate()` pour le débit d’appels; le label `status` distingue succès/échec.
+-   OpenAI — latence p95: histogramme `openai_request_duration_seconds_bucket{model,endpoint}`
+    -   Interprétation: `histogram_quantile(0.95, rate(..._bucket[5m]))` pour le 95e percentile.
+-   OpenAI — tokens (entrée/sortie): `openai_request_tokens` et `openai_response_tokens`
+    -   Interprétation: `increase(...[5m])` pour suivre la consommation sur la fenêtre. Sert d’estimateur de coût.
+-   FAISS — volume de recherches: `faiss_search_total{index,endpoint}`
+-   FAISS — latence p95: histogramme `faiss_search_duration_seconds_bucket{index,endpoint}`
+-   FAISS — résultats retournés: `faiss_results_count{index,endpoint}` (gauge ou histogramme simple selon implémentation)
+-   Santé application (pour contexte): `http_requests_total{method,endpoint,status}`, `http_request_duration_seconds_bucket{...}`, `http_requests_in_flight`.
+
+Correspondance avec le dashboard OpenAI (captures d’écran fournies):
+
+-   « Total requests » ↔ somme de `increase(openai_requests_total[1d])` (par modèle/endpoint si besoin).
+-   « Total tokens » ↔ `increase(openai_request_tokens[1d]) + increase(openai_response_tokens[1d])`.
+-   « Spend » ↔ estimation locale: \( cost \approx tokens*in/1000 * price*in + tokens_out/1000 * price_out \) par modèle. La valeur officielle de dépense reste celle du dashboard OpenAI; le graphe local sert d’alerte préventive.
+
+### 2) Outils d’intégration et restitution temps réel
+
+-   Collecte: Prometheus scrute `web:8000/metrics` (voir `E3-E4/monitoring/prometheus/prometheus.yml`).
+-   Restitution: Grafana (dashboards pré‑provisionnés dans `E3-E4/monitoring/grafana/dashboards/`).
+-   Alerting: Grafana Alerting avec envoi vers Discord (`E3-E4/monitoring/grafana/provisioning/alerting/`).
+
+Exemples de panneaux Grafana (promql simplifiée):
+
+```promql
+// OpenAI — débit (req/s)
+sum by (model, endpoint, status) (rate(openai_requests_total[5m]))
+
+// OpenAI — latence p95
+histogram_quantile(0.95, sum by (le, model, endpoint) (rate(openai_request_duration_seconds_bucket[5m])))
+
+// OpenAI — tokens sur 24h
+sum(increase(openai_request_tokens[24h]) + increase(openai_response_tokens[24h]))
+
+// FAISS — latence p95
+histogram_quantile(0.95, sum by (le, index, endpoint) (rate(faiss_search_duration_seconds_bucket[5m])))
+```
+
+### 3) Règles d’alerte (extraits)
+
+Les règles sont déclaratives (voir `rules-fastapi.yaml`). Seuils proposés pour l’environnement de dev, durcissables en prod:
+
+-   Erreurs OpenAI anormales:
+    -   Condition: `sum(rate(openai_requests_total{status="error"}[5m])) / sum(rate(openai_requests_total[5m])) > 0.1` pendant 2m.
+-   Latence OpenAI élevée (p95 > 2s):
+    -   Condition: `histogram_quantile(0.95, rate(openai_request_duration_seconds_bucket[5m])) > 2` pendant 2m.
+-   Latence FAISS élevée (p95 > 500ms):
+    -   Condition: `histogram_quantile(0.95, rate(faiss_search_duration_seconds_bucket[5m])) > 0.5` pendant 2m.
+-   Coût en hausse (pré‑alerte):
+    -   Condition: `increase(openai_request_tokens[10m]) + increase(openai_response_tokens[10m]) > THRESHOLD_TOKENS` (seuil à ajuster).
+
+Les notifications sont acheminées vers Discord via `DISCORD_WEBHOOK_URL`.
+
+### 4) Accessibilité de la restitution
+
+-   Grafana est accessible via navigateur, supporte clavier et thèmes à fort contraste; les dashboards utilisent palettes compatibles daltonisme.
+-   Export CSV depuis chaque panel pour partage dans des feuilles de calcul (lecture non technique).
+-   Snapshots Grafana pour parties prenantes sans compte et liens publics temporaires si besoin.
+
+### 5) Bac à sable / environnement de test
+
+La chaîne est testable en local via Docker Compose:
+
+```bash
+cd E3-E4
+docker compose up -d web prometheus grafana
+```
+
+Vérifications:
+
+-   `http://localhost:8001` (API), scrutée en interne sur `web:8000/metrics`.
+-   `http://localhost:9090` (Prometheus) et `http://localhost:3000` (Grafana).
+-   Lancer quelques appels à l’API pour faire évoluer OpenAI/FAISS; les graphes réagissent en temps réel.
+
+Scénarios de test rapide:
+
+-   surcharge latence: envoyer des requêtes successives avec contexte long; vérifier p95 OpenAI.
+-   erreur contrôlée: forcer un mauvais modèle/clé pour générer des erreurs et tester l’alerte « OpenAI Error Rate ».
+-   requêtes FAISS: déclencher des recherches pour observer le p95 FAISS.
+
+### 6) Chaîne opérationnelle et correspondance aux critères C11
+
+-   Les métriques ciblées (OpenAI/FAISS) sont documentées et utilisées sans ambiguïté.
+-   Les outils (Prometheus, Grafana, Discord) sont adaptés aux contraintes du projet et déjà intégrés.
+-   Restitution temps réel: dashboards Grafana + export CSV; validation croisée avec le dashboard OpenAI.
+-   Accessibilité: partage par snapshots/CSV; thèmes à fort contraste; navigation clavier.
+-   Bac à sable: exécution via Docker Compose, règles d’alerte testées.
+-   Chaîne en état de marche: métriques exposées par l’API, collectées et affichées; alertes actives.
+-   Sources versionnées: voir `E3-E4/monitoring/` dans le dépôt.
+-   Documentation d’installation/configuration: voir section « Déploiement et exploitation locale » ci‑dessous et `.env_example`.
+-   Conformité accessibilité: documentation fournie en Markdown lisible, compatible lecteurs d’écran, contrastes forts sur dashboards.
+
+---
+
 ## Monitoring de l’application d’IA — Rapport de certification (C20)
 
 Ce document présente l’architecture et la mise en œuvre du monitorage de l’application d’intelligence artificielle développée dans le cadre du projet `E3-E4`. L’application est constituée d’une API FastAPI intégrant un modèle LLM (OpenAI), un moteur de recherche sémantique basé sur FAISS et une base de données PostgreSQL. Conformément à la compétence C20, l’objectif du dispositif de monitoring est de surveiller la disponibilité et les performances des composants, de détecter automatiquement les incidents et d’alimenter une boucle de rétroaction MLOps permettant l’amélioration continue du système, tout en respectant les principes de protection des données personnelles.
