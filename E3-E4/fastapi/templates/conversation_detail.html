@@ -105,7 +105,7 @@
                                 <div class="message-container">
                                     <div class="message {% if message.role == 'user' %}user{% else %}assistant{% endif %}" data-role="{{ message.role }}">
                                         {% if message.image_path %}
-                                        <img src="{{ message.image_path }}" alt="Image jointe">
+                                        <img src="{{ message.image_path }}" alt="Image jointe" style="max-width: 300px; height: auto; border-radius: 8px; margin-bottom: 8px; display: block;">
                                         {% endif %}
                                         <span class="message-text">{{ message.content }}</span>
                                     </div>

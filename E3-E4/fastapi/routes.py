@@ -780,7 +780,8 @@ class APIRoutes(BaseRoutes):
             return {
                 "response": assistant_response,
                 "conversation_id": conversation.id,
-                "history": conversation.history
+                "history": conversation.history,
+                "uploaded_images": image_paths
             }
             
         except HTTPException:

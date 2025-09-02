@@ -277,6 +277,7 @@ async def metrics():
 
 # Static files et templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 templates = Jinja2Templates(directory="templates")
 # En dev, activer l'auto-reload des templates
 templates.env.auto_reload = DEBUG

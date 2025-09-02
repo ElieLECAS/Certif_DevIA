@@ -229,9 +229,6 @@
                 const img = document.createElement("img");
                 img.src = e.target.result;
                 chatImagePreview.appendChild(img);
-
-                // Ajouter un message dans le chat
-                addMessage(`📤 Image envoyée: ${file.name}`, "user");
             };
             reader.readAsDataURL(file);
         });
@@ -254,6 +251,18 @@
             const data = await response.json();
 
             if (response.ok && data.response) {
+                // Ajouter les messages d'images uploadées
+                if (data.uploaded_images && data.uploaded_images.length > 0) {
+                    data.uploaded_images.forEach((imagePath, index) => {
+                        addMessage(
+                            `📤 Image envoyée: ${files[index].name}`,
+                            "user",
+                            imagePath
+                        );
+                    });
+                }
+
+                // Ajouter la réponse de l'assistant
                 addMessage(data.response, "assistant");
 
                 // Mettre à jour l'ID de conversation si nécessaire
@@ -409,9 +418,26 @@
         }
     });
 
-    function addMessage(content, role) {
+    function addMessage(content, role, imagePath = null) {
         const messageDiv = document.createElement("div");
         messageDiv.className = `message ${role}`;
+
+        // Ajouter l'image si elle existe
+        if (imagePath) {
+            const img = document.createElement("img");
+            img.src = imagePath;
+            img.alt = "Image jointe";
+            img.style.maxWidth = "300px";
+            img.style.height = "auto";
+            img.style.borderRadius = "8px";
+            img.style.marginBottom = "8px";
+            img.style.display = "block";
+            messageDiv.appendChild(img);
+        }
+
+        // Créer l'élément pour le texte
+        const textSpan = document.createElement("span");
+        textSpan.className = "message-text";
 
         // Traiter le markdown si c'est un message de l'assistant
         if (role === "assistant") {
@@ -420,11 +446,13 @@
                 breaks: true,
                 gfm: true,
             });
-            messageDiv.innerHTML = marked.parse(content);
+            textSpan.innerHTML = marked.parse(content);
         } else {
             // Pour les messages utilisateur, afficher en texte simple
-            messageDiv.textContent = content;
+            textSpan.textContent = content;
         }
+
+        messageDiv.appendChild(textSpan);
 
         // Insérer avant l'indicateur de frappe
         chatMessages.insertBefore(messageDiv, typingIndicator);
