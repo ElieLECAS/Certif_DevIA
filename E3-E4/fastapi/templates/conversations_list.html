@@ -112,10 +112,13 @@
                                                 <h5>Résumé</h5>
                                             </div>
                                             <div class="card-body">
-                                                <p>
+                                                <div
+                                                    class="summary-content"
+                                                    id="summary-{{ conversation.id }}"
+                                                >
                                                     {{ conversation.summary or
                                                     "Aucun résumé disponible" }}
-                                                </p>
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
@@ -140,8 +143,25 @@
     </div>
 </div>
 {% endblock %} {% block extra_js %}
+<!-- Ajout de la bibliothèque Marked pour le rendu markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
     document.addEventListener("DOMContentLoaded", function () {
+        // Configurer marked pour la sécurité
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+        });
+
+        // Traiter tous les résumés existants
+        document
+            .querySelectorAll(".summary-content")
+            .forEach(function (summaryDiv) {
+                const content = summaryDiv.textContent.trim();
+                if (content && content !== "Aucun résumé disponible") {
+                    summaryDiv.innerHTML = marked.parse(content);
+                }
+            });
         // Forcer l'état initial masqué des lignes de détails
         document.querySelectorAll(".details-row").forEach((row) => {
             row.style.display = "none";

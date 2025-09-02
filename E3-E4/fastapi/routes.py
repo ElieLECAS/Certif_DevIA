@@ -96,6 +96,7 @@ class AuthRoutes(BaseRoutes):
         """Enregistrer les routes d'authentification"""
         self.router.get("/login", response_class=HTMLResponse, response_model=None)(self.login_page)
         self.router.post("/login", response_model=None)(self.login)
+        self.router.post("/token")(self.get_token)
         self.router.get("/logout", response_model=None)(self.logout)
         self.router.get("/register", response_class=HTMLResponse, response_model=None)(self.register_page)
         self.router.post("/register", response_model=None)(self.register)
@@ -210,6 +211,66 @@ class AuthRoutes(BaseRoutes):
         db.commit()
         
         return RedirectResponse(url="/login?message=Compte créé avec succès", status_code=302)
+    
+    async def get_token(
+        self,
+        request: Request,
+        db: Session = Depends(get_db)
+    ):
+        """API endpoint pour obtenir un token d'accès (POST)"""
+        try:
+            # Récupérer les données du formulaire ou JSON
+            content_type = request.headers.get("content-type", "")
+            
+            if "application/json" in content_type:
+                data = await request.json()
+                username = data.get("username")
+                password = data.get("password")
+            else:
+                form_data = await request.form()
+                username = form_data.get("username")
+                password = form_data.get("password")
+            
+            if not username or not password:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username et password requis"
+                )
+            
+            # Authentifier l'utilisateur
+            user = authenticate_user(db, username, password)
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Identifiants invalides",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            
+            # Créer le token d'accès
+            try:
+                expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+            except (TypeError, ValueError):
+                expire_minutes = 30
+            
+            access_token_expires = timedelta(minutes=expire_minutes)
+            access_token = create_access_token(
+                data={"sub": user.username}, 
+                expires_delta=access_token_expires
+            )
+            
+            return {
+                "access_token": access_token,
+                "token_type": "bearer",
+                "expires_in": expire_minutes * 60
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Erreur lors de la génération du token: {str(e)}"
+            )
 
 
 class ConversationRoutes(BaseRoutes):
@@ -719,7 +780,8 @@ class APIRoutes(BaseRoutes):
             return {
                 "response": assistant_response,
                 "conversation_id": conversation.id,
-                "history": conversation.history
+                "history": conversation.history,
+                "uploaded_images": image_paths
             }
             
         except HTTPException:
