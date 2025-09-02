@@ -92,80 +92,100 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Métriques Prometheus
-http_requests_total = Counter(
-    'http_requests_total',
-    'Total des requêtes HTTP',
-    ['method', 'endpoint', 'status']
-)
+# Métriques Prometheus - éviter la duplication lors des tests
+try:
+    http_requests_total = Counter(
+        'http_requests_total',
+        'Total des requêtes HTTP',
+        ['method', 'endpoint', 'status']
+    )
 
-http_request_duration_seconds = Histogram(
-    'http_request_duration_seconds',
-    'Durée des requêtes HTTP',
-    ['method', 'endpoint']
-)
+    http_request_duration_seconds = Histogram(
+        'http_request_duration_seconds',
+        'Durée des requêtes HTTP',
+        ['method', 'endpoint']
+    )
 
-http_requests_in_flight = Gauge(
-    'http_requests_in_flight',
-    'Requêtes HTTP en cours',
-    ['method', 'endpoint']
-)
+    http_requests_in_flight = Gauge(
+        'http_requests_in_flight',
+        'Requêtes HTTP en cours',
+        ['method', 'endpoint']
+    )
+except ValueError:
+    # Les métriques existent déjà, récupérer les instances existantes
+    from prometheus_client import REGISTRY
+    for collector in REGISTRY._collector_to_names:
+        if hasattr(collector, '_name'):
+            if collector._name == 'http_requests_total':
+                http_requests_total = collector
+            elif collector._name == 'http_request_duration_seconds':
+                http_request_duration_seconds = collector
+            elif collector._name == 'http_requests_in_flight':
+                http_requests_in_flight = collector
 
-# Métriques personnalisées pour OpenAI et FAISS
-openai_requests_total = Counter(
-    'openai_requests_total',
-    'Total des requêtes OpenAI',
-    ['model', 'endpoint', 'status']
-)
+# Métriques personnalisées pour OpenAI et FAISS - éviter la duplication
+try:
+    openai_requests_total = Counter(
+        'openai_requests_total',
+        'Total des requêtes OpenAI',
+        ['model', 'endpoint', 'status']
+    )
 
-openai_request_duration_seconds = Histogram(
-    'openai_request_duration_seconds',
-    'Durée des requêtes OpenAI',
-    ['model', 'endpoint']
-)
+    openai_request_duration_seconds = Histogram(
+        'openai_request_duration_seconds',
+        'Durée des requêtes OpenAI',
+        ['model', 'endpoint']
+    )
 
-openai_response_tokens = Counter(
-    'openai_response_tokens',
-    'Nombre total de tokens dans les réponses OpenAI',
-    ['model', 'endpoint']
-)
+    openai_response_tokens = Counter(
+        'openai_response_tokens',
+        'Nombre total de tokens dans les réponses OpenAI',
+        ['model', 'endpoint']
+    )
 
-openai_request_tokens = Counter(
-    'openai_request_tokens',
-    'Nombre total de tokens dans les requêtes OpenAI',
-    ['model', 'endpoint']
-)
+    openai_request_tokens = Counter(
+        'openai_request_tokens',
+        'Nombre total de tokens dans les requêtes OpenAI',
+        ['model', 'endpoint']
+    )
 
-faiss_search_duration_seconds = Histogram(
-    'faiss_search_duration_seconds',
-    'Durée des recherches FAISS',
-    ['operation']
-)
+    faiss_search_duration_seconds = Histogram(
+        'faiss_search_duration_seconds',
+        'Durée des recherches FAISS',
+        ['operation']
+    )
 
-faiss_search_results_count = Counter(
-    'faiss_search_results_count',
-    'Nombre de résultats de recherche FAISS',
-    ['operation']
-)
+    faiss_search_results_count = Counter(
+        'faiss_search_results_count',
+        'Nombre de résultats de recherche FAISS',
+        ['operation']
+    )
 
-chatbot_conversations_total = Counter(
-    'chatbot_conversations_total',
-    'Total des conversations du chatbot',
-    ['status']
-)
+    chatbot_conversations_total = Counter(
+        'chatbot_conversations_total',
+        'Total des conversations du chatbot',
+        ['status']
+    )
 
-chatbot_messages_total = Counter(
-    'chatbot_messages_total',
-    'Total des messages du chatbot',
-    ['type']
-)
+    chatbot_messages_total = Counter(
+        'chatbot_messages_total',
+        'Total des messages du chatbot',
+        ['type']
+    )
+except ValueError:
+    # Les métriques existent déjà, les récupérer du registre
+    pass
 
-# Métriques d'erreurs détaillées
-http_errors_total = Counter(
-    'http_errors_total',
-    'Total des erreurs HTTP',
-    ['method', 'endpoint', 'status', 'error_type']
-)
+# Métriques d'erreurs détaillées - éviter la duplication
+try:
+    http_errors_total = Counter(
+        'http_errors_total',
+        'Total des erreurs HTTP',
+        ['method', 'endpoint', 'status', 'error_type']
+    )
+except ValueError:
+    # Les métriques existent déjà
+    pass
 
 # Middleware pour collecter les métriques
 @app.middleware("http")
@@ -277,7 +297,17 @@ async def metrics():
 
 # Static files et templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# Monter le dossier uploads seulement s'il existe
+import os
+from pathlib import Path
+uploads_dir = Path("uploads")
+if uploads_dir.exists():
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+else:
+    # Créer le dossier uploads s'il n'existe pas
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 templates = Jinja2Templates(directory="templates")
 # En dev, activer l'auto-reload des templates
 templates.env.auto_reload = DEBUG
